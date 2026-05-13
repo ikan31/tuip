@@ -3,8 +3,8 @@
 ## Context
 
 - Goal: design `tuip`, a terminal UI for aggregating SaaS status pages into shareable dashboards.
-- Current repository state: no application code exists yet; only `.DS_Store` is present.
-- The user wants planning and architecture first, not implementation.
+- Current repository state: Go CLI implementation exists for the approved MVP.
+- The user originally wanted planning first; the approved plan has now been implemented through the CLI/config milestones.
 - The final product should support a TUI launched with `tuip`, a left-side manager/search panel, and a right-side dashboard grid showing service health with colors and details.
 
 ## Approach
@@ -31,7 +31,7 @@ Recommended architecture, based on user decisions:
 
 ## Files to modify
 
-No application code exists yet. Likely future files/modules:
+Implemented files/modules:
 
 - `PLAN.md` — current architecture/gameplan.
 - `README.md` — project goals, CLI examples, status badges/screenshots later, install instructions, roadmap.
@@ -263,38 +263,38 @@ Checked: 2026-05-13T21:35:00Z
 
 ### Future implementation checklist
 
-- [ ] Initialize Go module.
-- [ ] Create normalized status model.
-- [ ] Create provider interface.
-- [ ] Create provider registry.
-- [ ] Create shared HTTP fetch client with 5s timeout and user-agent.
-- [ ] Implement Slack provider using Slack's current status API.
-- [ ] Implement reusable Statuspage helper.
-- [ ] Implement GitHub provider using Statuspage helper.
-- [ ] Implement Cloudflare provider using Statuspage helper.
-- [ ] Implement `tuip status <providers...>` orchestration with concurrent provider fetches.
-- [ ] Implement colored box/card human output.
-- [ ] Implement `--json` standardized output for tests/scriptability.
-- [ ] Implement optional `--details` flag to show active incidents/scheduled maintenance/components.
-- [ ] Implement `tuip providers list`.
-- [ ] Add unit tests for status mappings.
-- [ ] Add provider fixture tests using saved API responses.
-- [ ] Add README usage examples.
+- [x] Initialize Go module.
+- [x] Create normalized status model.
+- [x] Create provider interface.
+- [x] Create provider registry.
+- [x] Create shared HTTP fetch client with 5s timeout and user-agent.
+- [x] Implement Slack provider using Slack's current status API.
+- [x] Implement reusable Statuspage helper.
+- [x] Implement GitHub provider using Statuspage helper.
+- [x] Implement Cloudflare provider using Statuspage helper.
+- [x] Implement `tuip status <providers...>` orchestration with concurrent provider fetches.
+- [x] Implement colored box/card human output.
+- [x] Implement `--json` standardized output for tests/scriptability.
+- [x] Implement optional `--details` flag to show active incidents/scheduled maintenance/components.
+- [x] Implement `tuip providers list`.
+- [x] Add unit tests for status mappings.
+- [x] Add provider fixture tests using saved API responses.
+- [x] Add README usage examples.
 
 ### Post-MVP config/dashboard checklist
 
-- [ ] Create YAML config model.
-- [ ] Load config from default user config path.
-- [ ] Add `--config` override.
-- [ ] Implement `tuip status` against default dashboard.
-- [ ] Implement `tuip status --dashboard <name>`.
-- [ ] Implement `tuip dashboards create <name>`.
-- [ ] Implement `tuip dashboards list`.
-- [ ] Implement `tuip dashboards show <name>`.
-- [ ] Implement `tuip dashboards use <name>`.
-- [ ] Implement `tuip dashboards add <name> <provider...>`.
-- [ ] Implement `tuip dashboards remove <name> <provider...>`.
-- [ ] Validate provider IDs when writing dashboard config.
+- [x] Create YAML config model.
+- [x] Load config from default user config path.
+- [x] Add `--config` override.
+- [x] Implement `tuip status` against default dashboard.
+- [x] Implement `tuip status --dashboard <name>`.
+- [x] Implement `tuip dashboards create <name>`.
+- [x] Implement `tuip dashboards list`.
+- [x] Implement `tuip dashboards show <name>`.
+- [x] Implement `tuip dashboards use <name>`.
+- [x] Implement `tuip dashboards add <name> <provider...>`.
+- [x] Implement `tuip dashboards remove <name> <provider...>`.
+- [x] Validate provider IDs when writing dashboard config.
 
 ## Verification
 

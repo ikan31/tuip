@@ -1,0 +1,16 @@
+{
+  "status": "active",
+  "date_created": "2026-05-08T11:31:22-07:00",
+  "date_updated": "2026-05-11T14:48:12-07:00",
+  "active_incidents": [
+    {
+      "id": 1551,
+      "title": "Messages are delayed",
+      "type": "incident",
+      "status": "active",
+      "url": "https://slack-status.com/example",
+      "date_created": "2026-05-08T11:31:22-07:00",
+      "date_updated": "2026-05-11T14:48:12-07:00"
+    }
+  ]
+}

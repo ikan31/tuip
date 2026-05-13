@@ -1,0 +1,31 @@
+{
+  "page": {
+    "id": "kctbh9vrtdwd",
+    "name": "GitHub",
+    "url": "https://www.githubstatus.com",
+    "time_zone": "Etc/UTC",
+    "updated_at": "2026-05-13T17:03:51.902Z"
+  },
+  "components": [
+    {
+      "id": "8l4ygp009s5s",
+      "name": "Git Operations",
+      "status": "operational",
+      "group": false,
+      "group_id": null
+    },
+    {
+      "id": "brv1bkgrwx7q",
+      "name": "API Requests",
+      "status": "operational",
+      "group": false,
+      "group_id": null
+    }
+  ],
+  "incidents": [],
+  "scheduled_maintenances": [],
+  "status": {
+    "indicator": "none",
+    "description": "All Systems Operational"
+  }
+}

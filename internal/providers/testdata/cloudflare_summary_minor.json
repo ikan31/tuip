@@ -1,0 +1,61 @@
+{
+  "page": {
+    "id": "yh6f0r4529hb",
+    "name": "Cloudflare",
+    "url": "https://www.cloudflarestatus.com",
+    "time_zone": "Etc/UTC",
+    "updated_at": "2026-05-13T21:35:48.473Z"
+  },
+  "components": [
+    {
+      "id": "group1",
+      "name": "Core Services",
+      "status": "operational",
+      "group": true,
+      "group_id": null
+    },
+    {
+      "id": "component1",
+      "name": "Workers KV",
+      "status": "degraded_performance",
+      "group": false,
+      "group_id": "group1"
+    }
+  ],
+  "incidents": [
+    {
+      "id": "incident1",
+      "name": "Errors with Email Sending via the Worker Binding",
+      "status": "identified",
+      "impact": "minor",
+      "shortlink": "https://stspg.io/hs2ks123xz2x",
+      "started_at": "2026-05-13T14:39:12.515Z",
+      "updated_at": "2026-05-13T15:30:38.869Z",
+      "incident_updates": [
+        {
+          "body": "<p>A fix has been implemented and we are monitoring the results.</p>"
+        }
+      ]
+    }
+  ],
+  "scheduled_maintenances": [
+    {
+      "id": "maint1",
+      "name": "IST (Istanbul) on 2026-05-13",
+      "status": "scheduled",
+      "impact": "maintenance",
+      "shortlink": "https://stspg.io/2t5tl3llqdm0",
+      "scheduled_for": "2026-05-13T23:30:00.000Z",
+      "scheduled_until": "2026-05-14T05:30:00.000Z",
+      "incident_updates": [
+        {
+          "body": "<p>Maintenance will begin as scheduled.</p>"
+        }
+      ]
+    }
+  ],
+  "status": {
+    "indicator": "minor",
+    "description": "Minor Service Outage"
+  }
+}

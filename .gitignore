@@ -1,0 +1,6 @@
+.DS_Store
+/tuip
+/bin/
+/dist/
+*.test
+coverage.out
