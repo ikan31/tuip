@@ -19,13 +19,23 @@ import (
 	"github.com/tuipcli/tuip/internal/providers/builtin"
 )
 
+const version = "0.1.0"
+
 // NewRootCommand builds the tuip CLI command tree.
 func NewRootCommand() *cobra.Command {
 	var configPath string
 
 	root := &cobra.Command{
-		Use:           "tuip",
-		Short:         "Terminal SaaS status dashboards",
+		Use:   "tuip",
+		Short: "Terminal SaaS status dashboards",
+		Long: strings.TrimSpace(`tuip checks SaaS service status from your terminal.
+
+Use explicit providers for quick checks, or configure YAML dashboards for reusable groups of services.`),
+		Example: strings.TrimSpace(`tuip status slack github cloudflare
+tuip status --json slack github
+tuip dashboards create work
+tuip dashboards add work slack github cloudflare`),
+		Version:       version,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
@@ -47,14 +57,16 @@ func newStatusCommand(configPath *string) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "status [provider...]",
 		Short: "Fetch provider statuses",
-		Long: strings.TrimSpace(`Fetch provider statuses.
+		Long: strings.TrimSpace(`Fetch SaaS provider statuses.
 
-Examples:
-  tuip status slack github cloudflare
-  tuip status --details slack
-  tuip status --json slack github
-  tuip status                 # later/config mode: default dashboard
-  tuip status --dashboard work`),
+Pass provider IDs directly for an ad-hoc check. With no provider IDs, tuip checks the configured default dashboard. Use --dashboard to check a named dashboard.`),
+		Example: strings.TrimSpace(`tuip status slack github cloudflare
+tuip status --details cloudflare
+tuip status --json slack github
+tuip status
+tuip status --dashboard work`),
+		Args:              cobra.ArbitraryArgs,
+		ValidArgsFunction: providerCompletionFunc,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			registry, err := newRegistry()
 			if err != nil {
@@ -90,6 +102,7 @@ Examples:
 	cmd.Flags().BoolVar(&details, "details", false, "include active incidents, scheduled maintenance, and components")
 	cmd.Flags().StringVar(&dashboardName, "dashboard", "", "dashboard name from config")
 	cmd.Flags().BoolVar(&failOnDegraded, "fail-on-degraded", false, "exit non-zero when any checked provider is not operational")
+
 	return cmd
 }
 
@@ -97,10 +110,14 @@ func newProvidersCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "providers",
 		Short: "Manage built-in providers",
+		Long:  "List and inspect the built-in SaaS status providers that tuip can check.",
 	}
+
 	cmd.AddCommand(&cobra.Command{
-		Use:   "list",
-		Short: "List built-in providers",
+		Use:     "list",
+		Short:   "List built-in providers",
+		Example: "tuip providers list",
+		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			registry, err := newRegistry()
 			if err != nil {
@@ -123,14 +140,24 @@ func newProvidersCommand() *cobra.Command {
 
 func newDashboardsCommand(configPath *string) *cobra.Command {
 	dashboards := &cobra.Command{
-		Use:   "dashboards",
-		Short: "Manage YAML dashboards",
+		Use:     "dashboards",
+		Aliases: []string{"dashboard"},
+		Short:   "Manage YAML dashboards",
+		Long: strings.TrimSpace(`Manage shareable YAML dashboards.
+
+Dashboards are named collections of provider IDs. The default dashboard is used when running tuip status without explicit providers.`),
+		Example: strings.TrimSpace(`tuip dashboards create work
+tuip dashboards add work slack github cloudflare
+tuip dashboards use work
+tuip status`),
 	}
 
 	dashboards.AddCommand(&cobra.Command{
-		Use:   "create <name>",
-		Short: "Create a dashboard",
-		Args:  cobra.ExactArgs(1),
+		Use:               "create <name>",
+		Short:             "Create a dashboard",
+		Example:           "tuip dashboards create work",
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: noFileCompletionFunc,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path, cfg, err := loadOrNewConfig(*configPath)
 			if err != nil {
@@ -148,8 +175,10 @@ func newDashboardsCommand(configPath *string) *cobra.Command {
 	})
 
 	dashboards.AddCommand(&cobra.Command{
-		Use:   "list",
-		Short: "List dashboards",
+		Use:     "list",
+		Short:   "List dashboards",
+		Example: "tuip dashboards list",
+		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			_, cfg, err := loadOrNewConfig(*configPath)
 			if err != nil {
@@ -173,9 +202,11 @@ func newDashboardsCommand(configPath *string) *cobra.Command {
 	})
 
 	dashboards.AddCommand(&cobra.Command{
-		Use:   "show <name>",
-		Short: "Show dashboard providers",
-		Args:  cobra.ExactArgs(1),
+		Use:               "show <name>",
+		Short:             "Show dashboard providers",
+		Example:           "tuip dashboards show work",
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: dashboardCompletionFunc(configPath),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			_, cfg, err := loadConfig(*configPath)
 			if err != nil {
@@ -211,9 +242,11 @@ func newDashboardsCommand(configPath *string) *cobra.Command {
 	})
 
 	dashboards.AddCommand(&cobra.Command{
-		Use:   "use <name>",
-		Short: "Set the default dashboard",
-		Args:  cobra.ExactArgs(1),
+		Use:               "use <name>",
+		Short:             "Set the default dashboard",
+		Example:           "tuip dashboards use work",
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: dashboardCompletionFunc(configPath),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path, cfg, err := loadConfig(*configPath)
 			if err != nil {
@@ -231,9 +264,11 @@ func newDashboardsCommand(configPath *string) *cobra.Command {
 	})
 
 	dashboards.AddCommand(&cobra.Command{
-		Use:   "add <name> <provider...>",
-		Short: "Add providers to a dashboard",
-		Args:  cobra.MinimumNArgs(2),
+		Use:               "add <name> <provider...>",
+		Short:             "Add providers to a dashboard",
+		Example:           "tuip dashboards add work slack github cloudflare",
+		Args:              cobra.MinimumNArgs(2),
+		ValidArgsFunction: dashboardProviderCompletionFunc(configPath),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path, cfg, err := loadConfig(*configPath)
 			if err != nil {
@@ -259,9 +294,12 @@ func newDashboardsCommand(configPath *string) *cobra.Command {
 	})
 
 	dashboards.AddCommand(&cobra.Command{
-		Use:   "remove <name> <provider...>",
-		Short: "Remove providers from a dashboard",
-		Args:  cobra.MinimumNArgs(2),
+		Use:               "remove <name> <provider...>",
+		Aliases:           []string{"rm"},
+		Short:             "Remove providers from a dashboard",
+		Example:           "tuip dashboards remove work github",
+		Args:              cobra.MinimumNArgs(2),
+		ValidArgsFunction: dashboardProviderCompletionFunc(configPath),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path, cfg, err := loadConfig(*configPath)
 			if err != nil {
@@ -361,6 +399,74 @@ func loadOrNewConfig(pathOverride string) (string, *config.Config, error) {
 func newRegistry() (*providers.Registry, error) {
 	client := fetch.NewClient(5 * time.Second)
 	return builtin.NewRegistry(client)
+}
+
+func providerCompletionFunc(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	return providerCompletions(args, toComplete)
+}
+
+func dashboardCompletionFunc(configPath *string) cobra.CompletionFunc {
+	return func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		path, err := config.ResolvePath(*configPath)
+		if err != nil {
+			return nil, cobra.ShellCompDirectiveNoFileComp
+		}
+		cfg, err := config.LoadOrNew(path)
+		if err != nil {
+			return nil, cobra.ShellCompDirectiveNoFileComp
+		}
+		return stringCompletions(cfg.DashboardNames(), args, toComplete), cobra.ShellCompDirectiveNoFileComp
+	}
+}
+
+func dashboardProviderCompletionFunc(configPath *string) cobra.CompletionFunc {
+	return func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		if len(args) == 0 {
+			return dashboardCompletionFunc(configPath)(cmd, args, toComplete)
+		}
+		return providerCompletions(args[1:], toComplete)
+	}
+}
+
+func providerCompletions(args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	registry, err := newRegistry()
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	used := map[string]bool{}
+	for _, arg := range args {
+		used[strings.ToLower(strings.TrimSpace(arg))] = true
+	}
+
+	matches := make([]string, 0)
+	for _, metadata := range registry.Metadata() {
+		if used[metadata.ID] || !strings.HasPrefix(metadata.ID, strings.ToLower(toComplete)) {
+			continue
+		}
+		matches = append(matches, metadata.ID+"\t"+metadata.Description)
+	}
+	return matches, cobra.ShellCompDirectiveNoFileComp
+}
+
+func noFileCompletionFunc(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	return nil, cobra.ShellCompDirectiveNoFileComp
+}
+
+func stringCompletions(values []string, args []string, toComplete string) []string {
+	used := map[string]bool{}
+	for _, arg := range args {
+		used[arg] = true
+	}
+
+	matches := make([]string, 0, len(values))
+	for _, value := range values {
+		if used[value] || !strings.HasPrefix(value, toComplete) {
+			continue
+		}
+		matches = append(matches, value)
+	}
+	return matches
 }
 
 func writeln(w io.Writer, args ...any) error {
