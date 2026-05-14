@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 
 	"gopkg.in/yaml.v3"
@@ -39,12 +40,30 @@ func New() *Config {
 }
 
 // DefaultPath returns the default user config file location.
+//
+// tuip is a terminal-first developer tool, so on Unix-like systems it follows
+// the XDG-style config location instead of macOS's GUI-oriented
+// ~/Library/Application Support path. Windows keeps the native OS config dir.
 func DefaultPath() (string, error) {
-	base, err := os.UserConfigDir()
+	base, err := defaultConfigDir()
 	if err != nil {
 		return "", err
 	}
 	return filepath.Join(base, "tuip", "config.yaml"), nil
+}
+
+func defaultConfigDir() (string, error) {
+	if xdgConfigHome := os.Getenv("XDG_CONFIG_HOME"); xdgConfigHome != "" {
+		return xdgConfigHome, nil
+	}
+	if runtime.GOOS == "windows" {
+		return os.UserConfigDir()
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(home, ".config"), nil
 }
 
 // ResolvePath returns overridePath if set, otherwise the default config path.

@@ -10,6 +10,7 @@ import (
 // provider listing, config validation, and future TUI search.
 type Metadata struct {
 	ID          string
+	Aliases     []string
 	Name        string
 	Description string
 	SourceURL   string

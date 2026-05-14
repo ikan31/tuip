@@ -25,6 +25,22 @@ func NewRegistry(client *fetch.Client) (*providers.Registry, error) {
 			factory:  func() providers.Provider { return github.New(client) },
 		},
 		{
+			metadata: github.NewEnterpriseCloudAU(client).Metadata(),
+			factory:  func() providers.Provider { return github.NewEnterpriseCloudAU(client) },
+		},
+		{
+			metadata: github.NewEnterpriseCloudEU(client).Metadata(),
+			factory:  func() providers.Provider { return github.NewEnterpriseCloudEU(client) },
+		},
+		{
+			metadata: github.NewEnterpriseCloudJP(client).Metadata(),
+			factory:  func() providers.Provider { return github.NewEnterpriseCloudJP(client) },
+		},
+		{
+			metadata: github.NewEnterpriseCloudUS(client).Metadata(),
+			factory:  func() providers.Provider { return github.NewEnterpriseCloudUS(client) },
+		},
+		{
 			metadata: cloudflare.New(client).Metadata(),
 			factory:  func() providers.Provider { return cloudflare.New(client) },
 		},

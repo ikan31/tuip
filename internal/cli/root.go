@@ -33,8 +33,8 @@ func NewRootCommand() *cobra.Command {
 Use explicit providers for quick checks, or configure YAML dashboards for reusable groups of services.`),
 		Example: strings.TrimSpace(`tuip status slack github cloudflare
 tuip status --json slack github
-tuip dashboards create work
-tuip dashboards add work slack github cloudflare`),
+tuip dashboard create work
+tuip dashboard add work slack github cloudflare`),
 		Version:       version,
 		SilenceUsage:  true,
 		SilenceErrors: true,
@@ -124,11 +124,12 @@ func newProvidersCommand() *cobra.Command {
 				return err
 			}
 			writer := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 2, ' ', 0)
-			if err := writeln(writer, "ID\tNAME\tSOURCE\tAPI"); err != nil {
+			if err := writeln(writer, "ID\tALIASES\tNAME\tSOURCE\tAPI"); err != nil {
 				return err
 			}
 			for _, metadata := range registry.Metadata() {
-				if err := writef(writer, "%s\t%s\t%s\t%s\n", metadata.ID, metadata.Name, metadata.SourceURL, metadata.APIURL); err != nil {
+				aliases := strings.Join(metadata.Aliases, ", ")
+				if err := writef(writer, "%s\t%s\t%s\t%s\t%s\n", metadata.ID, aliases, metadata.Name, metadata.SourceURL, metadata.APIURL); err != nil {
 					return err
 				}
 			}
@@ -140,44 +141,65 @@ func newProvidersCommand() *cobra.Command {
 
 func newDashboardsCommand(configPath *string) *cobra.Command {
 	dashboards := &cobra.Command{
-		Use:     "dashboards",
-		Aliases: []string{"dashboard"},
+		Use:     "dashboard",
+		Aliases: []string{"dashboards"},
 		Short:   "Manage YAML dashboards",
 		Long: strings.TrimSpace(`Manage shareable YAML dashboards.
 
 Dashboards are named collections of provider IDs. The default dashboard is used when running tuip status without explicit providers.`),
-		Example: strings.TrimSpace(`tuip dashboards create work
-tuip dashboards add work slack github cloudflare
-tuip dashboards use work
+		Example: strings.TrimSpace(`tuip dashboard create work slack github cloudflare
+tuip dashboard add work cloudflare
+tuip dashboard use work
 tuip status`),
 	}
 
 	dashboards.AddCommand(&cobra.Command{
-		Use:               "create <name>",
+		Use:               "create <name> [provider...]",
 		Short:             "Create a dashboard",
-		Example:           "tuip dashboards create work",
-		Args:              cobra.ExactArgs(1),
-		ValidArgsFunction: noFileCompletionFunc,
+		Example:           "tuip dashboard create work slack github cloudflare",
+		Args:              cobra.MinimumNArgs(1),
+		ValidArgsFunction: createDashboardCompletionFunc,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path, cfg, err := loadOrNewConfig(*configPath)
 			if err != nil {
 				return err
 			}
+
 			name := args[0]
+			providerIDs := normalizeProviderIDs(args[1:])
+			if len(providerIDs) > 0 {
+				registry, err := newRegistry()
+				if err != nil {
+					return err
+				}
+				providerIDs, err = registry.CanonicalIDs(providerIDs)
+				if err != nil {
+					return err
+				}
+			}
+
 			if err := cfg.CreateDashboard(name); err != nil {
 				return err
+			}
+			if len(providerIDs) > 0 {
+				if err := cfg.AddProviders(name, providerIDs); err != nil {
+					return err
+				}
 			}
 			if err := config.Save(path, cfg); err != nil {
 				return err
 			}
-			return writef(cmd.OutOrStdout(), "created dashboard %q\n", name)
+			if len(providerIDs) == 0 {
+				return writef(cmd.OutOrStdout(), "created dashboard %q\n", name)
+			}
+			return writef(cmd.OutOrStdout(), "created dashboard %q with %s\n", name, strings.Join(providerIDs, ", "))
 		},
 	})
 
 	dashboards.AddCommand(&cobra.Command{
 		Use:     "list",
 		Short:   "List dashboards",
-		Example: "tuip dashboards list",
+		Example: "tuip dashboard list",
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			_, cfg, err := loadOrNewConfig(*configPath)
@@ -204,7 +226,7 @@ tuip status`),
 	dashboards.AddCommand(&cobra.Command{
 		Use:               "show <name>",
 		Short:             "Show dashboard providers",
-		Example:           "tuip dashboards show work",
+		Example:           "tuip dashboard show work",
 		Args:              cobra.ExactArgs(1),
 		ValidArgsFunction: dashboardCompletionFunc(configPath),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -244,7 +266,7 @@ tuip status`),
 	dashboards.AddCommand(&cobra.Command{
 		Use:               "use <name>",
 		Short:             "Set the default dashboard",
-		Example:           "tuip dashboards use work",
+		Example:           "tuip dashboard use work",
 		Args:              cobra.ExactArgs(1),
 		ValidArgsFunction: dashboardCompletionFunc(configPath),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -266,7 +288,7 @@ tuip status`),
 	dashboards.AddCommand(&cobra.Command{
 		Use:               "add <name> <provider...>",
 		Short:             "Add providers to a dashboard",
-		Example:           "tuip dashboards add work slack github cloudflare",
+		Example:           "tuip dashboard add work slack github cloudflare",
 		Args:              cobra.MinimumNArgs(2),
 		ValidArgsFunction: dashboardProviderCompletionFunc(configPath),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -280,7 +302,8 @@ tuip status`),
 			}
 			name := args[0]
 			providerIDs := normalizeProviderIDs(args[1:])
-			if err := registry.ValidateIDs(providerIDs); err != nil {
+			providerIDs, err = registry.CanonicalIDs(providerIDs)
+			if err != nil {
 				return err
 			}
 			if err := cfg.AddProviders(name, providerIDs); err != nil {
@@ -297,7 +320,7 @@ tuip status`),
 		Use:               "remove <name> <provider...>",
 		Aliases:           []string{"rm"},
 		Short:             "Remove providers from a dashboard",
-		Example:           "tuip dashboards remove work github",
+		Example:           "tuip dashboard remove work github",
 		Args:              cobra.MinimumNArgs(2),
 		ValidArgsFunction: dashboardProviderCompletionFunc(configPath),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -311,7 +334,8 @@ tuip status`),
 			}
 			name := args[0]
 			providerIDs := normalizeProviderIDs(args[1:])
-			if err := registry.ValidateIDs(providerIDs); err != nil {
+			providerIDs, err = registry.CanonicalIDs(providerIDs)
+			if err != nil {
 				return err
 			}
 			if err := cfg.RemoveProviders(name, providerIDs); err != nil {
@@ -348,7 +372,7 @@ func resolveStatusProviderIDs(configPath, dashboardName string, args []string) (
 		name = cfg.DefaultDashboard
 	}
 	if name == "" {
-		return nil, fmt.Errorf("no default dashboard configured; pass providers explicitly or run `tuip dashboards use <name>`")
+		return nil, fmt.Errorf("no default dashboard configured; pass providers explicitly or run `tuip dashboard use <name>`")
 	}
 	dashboard, ok := cfg.GetDashboard(name)
 	if !ok {
@@ -428,6 +452,13 @@ func dashboardProviderCompletionFunc(configPath *string) cobra.CompletionFunc {
 	}
 }
 
+func createDashboardCompletionFunc(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	if len(args) == 0 {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+	return providerCompletions(args[1:], toComplete)
+}
+
 func providerCompletions(args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	registry, err := newRegistry()
 	if err != nil {
@@ -436,21 +467,27 @@ func providerCompletions(args []string, toComplete string) ([]string, cobra.Shel
 
 	used := map[string]bool{}
 	for _, arg := range args {
-		used[strings.ToLower(strings.TrimSpace(arg))] = true
+		arg = strings.ToLower(strings.TrimSpace(arg))
+		used[arg] = true
+		if canonicalID, ok := registry.CanonicalID(arg); ok {
+			used[canonicalID] = true
+		}
 	}
 
 	matches := make([]string, 0)
+	toComplete = strings.ToLower(toComplete)
 	for _, metadata := range registry.Metadata() {
-		if used[metadata.ID] || !strings.HasPrefix(metadata.ID, strings.ToLower(toComplete)) {
-			continue
+		if !used[metadata.ID] && strings.HasPrefix(metadata.ID, toComplete) {
+			matches = append(matches, metadata.ID+"\t"+metadata.Description)
 		}
-		matches = append(matches, metadata.ID+"\t"+metadata.Description)
+		for _, alias := range metadata.Aliases {
+			if used[alias] || used[metadata.ID] || !strings.HasPrefix(alias, toComplete) {
+				continue
+			}
+			matches = append(matches, alias+"\tAlias for "+metadata.ID)
+		}
 	}
 	return matches, cobra.ShellCompDirectiveNoFileComp
-}
-
-func noFileCompletionFunc(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-	return nil, cobra.ShellCompDirectiveNoFileComp
 }
 
 func stringCompletions(values []string, args []string, toComplete string) []string {

@@ -332,6 +332,15 @@ Checked live endpoints during planning:
   - Returns Statuspage-style `status.indicator` and `status.description`.
 - GitHub `https://www.githubstatus.com/api/v2/summary.json`
   - Returns page, components, incidents, scheduled maintenance, and status.
+- GitHub Enterprise Cloud regional pages:
+  - EU exposes Statuspage JSON at `https://eu.githubstatus.com/api/v2/summary.json`.
+  - Australia, Japan, and US expose PagerDuty status-page JSON at `/api/data`.
+  - Registered provider IDs are `github-enterprise-cloud-au`, `github-enterprise-cloud-eu`, `github-enterprise-cloud-jp`, and `github-enterprise-cloud-us`.
+  - Short aliases are available as `github-au`, `github-eu`, `github-jp`, `github-us`, and `ghec-*` equivalents.
+- Slack regional note:
+  - Slack exposes one official current status API. Incidents may mention affected regions, but there are no separate official regional provider pages to register yet.
+- Cloudflare regional note:
+  - Cloudflare exposes regional/datacenter state as components on the main Cloudflare status page rather than separate regional status pages.
 - Cloudflare `https://www.cloudflarestatus.com/api/v2/status.json`
   - Returns Statuspage-style `status.indicator` and `status.description`.
 - Cloudflare `https://www.cloudflarestatus.com/api/v2/summary.json`
@@ -391,9 +400,10 @@ dashboards:
 
 Recommended config location once implemented:
 
-- Use Go's `os.UserConfigDir()` as the default base.
-- Store config at something like `<user-config-dir>/tuip/config.yaml`.
-- Support `--config /path/to/config.yaml` later for sharing/testing/custom setups.
+- Use `~/.config/tuip/config.yaml` by default on macOS/Linux because tuip is a terminal-first developer tool.
+- Honor `$XDG_CONFIG_HOME/tuip/config.yaml` when `XDG_CONFIG_HOME` is set.
+- Use Go's `os.UserConfigDir()` on Windows.
+- Support `--config /path/to/config.yaml` for sharing/testing/custom setups.
 
 
 ## Exit code decision notes

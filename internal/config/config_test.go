@@ -3,8 +3,47 @@ package config
 import (
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"testing"
 )
+
+func TestDefaultPathUsesXDGStyleConfigDir(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", "")
+
+	path, err := DefaultPath()
+	if err != nil {
+		t.Fatalf("DefaultPath() error = %v", err)
+	}
+
+	if runtime.GOOS == "windows" {
+		if path == "" {
+			t.Fatalf("DefaultPath() is empty")
+		}
+		return
+	}
+
+	want := filepath.Join(home, ".config", "tuip", "config.yaml")
+	if path != want {
+		t.Fatalf("DefaultPath() = %q, want %q", path, want)
+	}
+}
+
+func TestDefaultPathHonorsXDGConfigHome(t *testing.T) {
+	xdgConfigHome := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", xdgConfigHome)
+
+	path, err := DefaultPath()
+	if err != nil {
+		t.Fatalf("DefaultPath() error = %v", err)
+	}
+
+	want := filepath.Join(xdgConfigHome, "tuip", "config.yaml")
+	if path != want {
+		t.Fatalf("DefaultPath() = %q, want %q", path, want)
+	}
+}
 
 func TestDashboardConfigRoundTrip(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.yaml")

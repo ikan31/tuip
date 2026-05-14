@@ -15,6 +15,7 @@ type Factory func() Provider
 // implementations and metadata.
 type Registry struct {
 	entries map[string]registryEntry
+	aliases map[string]string
 }
 
 type registryEntry struct {
@@ -24,7 +25,10 @@ type registryEntry struct {
 
 // NewRegistry creates an empty provider registry.
 func NewRegistry() *Registry {
-	return &Registry{entries: map[string]registryEntry{}}
+	return &Registry{
+		entries: map[string]registryEntry{},
+		aliases: map[string]string{},
+	}
 }
 
 // Register adds a provider factory to the registry.
@@ -39,18 +43,47 @@ func (r *Registry) Register(metadata Metadata, factory Factory) error {
 		return fmt.Errorf("provider %q factory is required", metadata.ID)
 	}
 
-	id := strings.ToLower(strings.TrimSpace(metadata.ID))
+	id := normalizeID(metadata.ID)
 	metadata.ID = id
 	if _, exists := r.entries[id]; exists {
 		return fmt.Errorf("provider %q is already registered", id)
 	}
+	if canonical, exists := r.aliases[id]; exists {
+		return fmt.Errorf("provider id %q conflicts with alias for %q", id, canonical)
+	}
+
+	aliases := make([]string, 0, len(metadata.Aliases))
+	seenAliases := map[string]bool{}
+	for _, alias := range metadata.Aliases {
+		alias = normalizeID(alias)
+		if alias == "" || alias == id || seenAliases[alias] {
+			continue
+		}
+		if _, exists := r.entries[alias]; exists {
+			return fmt.Errorf("provider alias %q conflicts with registered provider", alias)
+		}
+		if canonical, exists := r.aliases[alias]; exists {
+			return fmt.Errorf("provider alias %q conflicts with alias for %q", alias, canonical)
+		}
+		seenAliases[alias] = true
+		aliases = append(aliases, alias)
+	}
+	metadata.Aliases = aliases
+
 	r.entries[id] = registryEntry{metadata: metadata, factory: factory}
+	for _, alias := range aliases {
+		r.aliases[alias] = id
+	}
 	return nil
 }
 
-// Get returns a provider by ID.
+// Get returns a provider by ID or alias.
 func (r *Registry) Get(id string) (Provider, bool) {
-	entry, ok := r.entries[normalizeID(id)]
+	canonicalID, ok := r.CanonicalID(id)
+	if !ok {
+		return nil, false
+	}
+	entry, ok := r.entries[canonicalID]
 	if !ok {
 		return nil, false
 	}
@@ -67,24 +100,44 @@ func (r *Registry) Metadata() []Metadata {
 	return items
 }
 
-// Has reports whether a provider ID is registered.
+// Has reports whether a provider ID or alias is registered.
 func (r *Registry) Has(id string) bool {
-	_, ok := r.entries[normalizeID(id)]
+	_, ok := r.CanonicalID(id)
 	return ok
+}
+
+// CanonicalID resolves a provider ID or alias to the canonical provider ID.
+func (r *Registry) CanonicalID(id string) (string, bool) {
+	id = normalizeID(id)
+	if _, ok := r.entries[id]; ok {
+		return id, true
+	}
+	canonicalID, ok := r.aliases[id]
+	return canonicalID, ok
+}
+
+// CanonicalIDs resolves provider IDs and aliases to canonical provider IDs.
+func (r *Registry) CanonicalIDs(ids []string) ([]string, error) {
+	canonicalIDs := make([]string, 0, len(ids))
+	var unknown []string
+	for _, id := range ids {
+		canonicalID, ok := r.CanonicalID(id)
+		if !ok {
+			unknown = append(unknown, id)
+			continue
+		}
+		canonicalIDs = append(canonicalIDs, canonicalID)
+	}
+	if len(unknown) > 0 {
+		return nil, fmt.Errorf("unknown provider(s): %s", strings.Join(unknown, ", "))
+	}
+	return canonicalIDs, nil
 }
 
 // ValidateIDs returns an error listing unknown provider IDs, if any.
 func (r *Registry) ValidateIDs(ids []string) error {
-	var unknown []string
-	for _, id := range ids {
-		if !r.Has(id) {
-			unknown = append(unknown, id)
-		}
-	}
-	if len(unknown) > 0 {
-		return fmt.Errorf("unknown provider(s): %s", strings.Join(unknown, ", "))
-	}
-	return nil
+	_, err := r.CanonicalIDs(ids)
+	return err
 }
 
 func normalizeID(id string) string {

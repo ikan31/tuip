@@ -6,6 +6,7 @@ The current MVP fetches normalized status for a small reliable provider set:
 
 - Slack
 - GitHub
+- GitHub Enterprise Cloud regional status pages
 - Cloudflare
 
 ## Install / run locally
@@ -63,33 +64,44 @@ Current provider sources:
 
 - Slack uses Slack's status API: <https://docs.slack.dev/reference/slack-status-api/>
 - GitHub uses Statuspage JSON from <https://www.githubstatus.com/#>
+- GitHub Enterprise Cloud EU uses Statuspage JSON from <https://eu.githubstatus.com/>
+- GitHub Enterprise Cloud Australia/Japan/US use PagerDuty status-page JSON from `/api/data`
+- GitHub Enterprise Cloud regional providers have short aliases: `github-au`, `github-eu`, `github-jp`, `github-us` plus `ghec-au`, `ghec-eu`, `ghec-jp`, `ghec-us`
 - Cloudflare uses Statuspage JSON documented from <https://www.cloudflarestatus.com/api>
 
 ## Dashboard config
 
 Dashboard config is YAML and is intended for the future TUI and for sharing setups with others.
 
-Default location:
+Default location on macOS/Linux:
 
 ```text
-<os user config dir>/tuip/config.yaml
+~/.config/tuip/config.yaml
 ```
+
+If `XDG_CONFIG_HOME` is set, tuip uses:
+
+```text
+$XDG_CONFIG_HOME/tuip/config.yaml
+```
+
+Windows uses the native OS user config directory.
 
 You can override it:
 
 ```bash
-tuip --config ./tuip.yaml dashboards list
+tuip --config ./tuip.yaml dashboard list
 ```
 
 Create and manage dashboards:
 
 ```bash
-tuip dashboards create work
-tuip dashboards add work slack github cloudflare
-tuip dashboards use work
-tuip dashboards list
-tuip dashboards show work
-tuip dashboards remove work github
+tuip dashboard create work slack github cloudflare
+tuip dashboard add work cloudflare
+tuip dashboard use work
+tuip dashboard list
+tuip dashboard show work
+tuip dashboard remove work github
 ```
 
 Once a default dashboard exists, this checks it:

@@ -15,6 +15,7 @@ import (
 // Options configures a reusable Atlassian Statuspage JSON provider.
 type Options struct {
 	ID          string
+	Aliases     []string
 	Name        string
 	Description string
 	SourceURL   string
@@ -35,6 +36,7 @@ func NewProvider(client *fetch.Client, options Options) *Provider {
 func (p *Provider) Metadata() providers.Metadata {
 	return providers.Metadata{
 		ID:          p.options.ID,
+		Aliases:     p.options.Aliases,
 		Name:        p.options.Name,
 		Description: p.options.Description,
 		SourceURL:   p.options.SourceURL,
