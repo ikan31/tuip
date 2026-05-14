@@ -11,12 +11,13 @@ import (
 )
 
 // WriteHuman renders a colored card per provider.
-func WriteHuman(w io.Writer, response status.Response, details bool) {
+func WriteHuman(w io.Writer, response status.Response, details bool) error {
 	cards := make([]string, 0, len(response.Results))
 	for _, result := range response.Results {
 		cards = append(cards, renderCard(result, details))
 	}
-	fmt.Fprintln(w, strings.Join(cards, "\n"))
+	_, err := fmt.Fprintln(w, strings.Join(cards, "\n"))
+	return err
 }
 
 func renderCard(snapshot status.Snapshot, details bool) string {

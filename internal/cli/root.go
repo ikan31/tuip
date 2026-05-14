@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"text/tabwriter"
@@ -71,7 +72,9 @@ Examples:
 					return err
 				}
 			} else {
-				output.WriteHuman(cmd.OutOrStdout(), response, details)
+				if err := output.WriteHuman(cmd.OutOrStdout(), response, details); err != nil {
+					return err
+				}
 			}
 			if checkErr != nil {
 				return checkErr
@@ -104,9 +107,13 @@ func newProvidersCommand() *cobra.Command {
 				return err
 			}
 			writer := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 2, ' ', 0)
-			fmt.Fprintln(writer, "ID\tNAME\tSOURCE\tAPI")
+			if err := writeln(writer, "ID\tNAME\tSOURCE\tAPI"); err != nil {
+				return err
+			}
 			for _, metadata := range registry.Metadata() {
-				fmt.Fprintf(writer, "%s\t%s\t%s\t%s\n", metadata.ID, metadata.Name, metadata.SourceURL, metadata.APIURL)
+				if err := writef(writer, "%s\t%s\t%s\t%s\n", metadata.ID, metadata.Name, metadata.SourceURL, metadata.APIURL); err != nil {
+					return err
+				}
 			}
 			return writer.Flush()
 		},
@@ -136,8 +143,7 @@ func newDashboardsCommand(configPath *string) *cobra.Command {
 			if err := config.Save(path, cfg); err != nil {
 				return err
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "created dashboard %q\n", name)
-			return nil
+			return writef(cmd.OutOrStdout(), "created dashboard %q\n", name)
 		},
 	})
 
@@ -151,15 +157,16 @@ func newDashboardsCommand(configPath *string) *cobra.Command {
 			}
 			names := cfg.DashboardNames()
 			if len(names) == 0 {
-				fmt.Fprintln(cmd.OutOrStdout(), "no dashboards configured")
-				return nil
+				return writeln(cmd.OutOrStdout(), "no dashboards configured")
 			}
 			for _, name := range names {
 				marker := " "
 				if name == cfg.DefaultDashboard {
 					marker = "*"
 				}
-				fmt.Fprintf(cmd.OutOrStdout(), "%s %s\n", marker, name)
+				if err := writef(cmd.OutOrStdout(), "%s %s\n", marker, name); err != nil {
+					return err
+				}
 			}
 			return nil
 		},
@@ -179,18 +186,25 @@ func newDashboardsCommand(configPath *string) *cobra.Command {
 			if !ok {
 				return fmt.Errorf("dashboard %q does not exist", name)
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "dashboard: %s\n", name)
+			if err := writef(cmd.OutOrStdout(), "dashboard: %s\n", name); err != nil {
+				return err
+			}
 			if cfg.DefaultDashboard == name {
-				fmt.Fprintln(cmd.OutOrStdout(), "default:   true")
+				if err := writeln(cmd.OutOrStdout(), "default:   true"); err != nil {
+					return err
+				}
 			}
 			providerIDs := dashboard.ProviderIDs()
 			if len(providerIDs) == 0 {
-				fmt.Fprintln(cmd.OutOrStdout(), "services:  none")
-				return nil
+				return writeln(cmd.OutOrStdout(), "services:  none")
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), "services:")
+			if err := writeln(cmd.OutOrStdout(), "services:"); err != nil {
+				return err
+			}
 			for _, providerID := range providerIDs {
-				fmt.Fprintf(cmd.OutOrStdout(), "  - %s\n", providerID)
+				if err := writef(cmd.OutOrStdout(), "  - %s\n", providerID); err != nil {
+					return err
+				}
 			}
 			return nil
 		},
@@ -212,8 +226,7 @@ func newDashboardsCommand(configPath *string) *cobra.Command {
 			if err := config.Save(path, cfg); err != nil {
 				return err
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "default dashboard set to %q\n", name)
-			return nil
+			return writef(cmd.OutOrStdout(), "default dashboard set to %q\n", name)
 		},
 	})
 
@@ -241,8 +254,7 @@ func newDashboardsCommand(configPath *string) *cobra.Command {
 			if err := config.Save(path, cfg); err != nil {
 				return err
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "added %s to dashboard %q\n", strings.Join(providerIDs, ", "), name)
-			return nil
+			return writef(cmd.OutOrStdout(), "added %s to dashboard %q\n", strings.Join(providerIDs, ", "), name)
 		},
 	})
 
@@ -270,8 +282,7 @@ func newDashboardsCommand(configPath *string) *cobra.Command {
 			if err := config.Save(path, cfg); err != nil {
 				return err
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "removed %s from dashboard %q\n", strings.Join(providerIDs, ", "), name)
-			return nil
+			return writef(cmd.OutOrStdout(), "removed %s from dashboard %q\n", strings.Join(providerIDs, ", "), name)
 		},
 	})
 
@@ -350,4 +361,14 @@ func loadOrNewConfig(pathOverride string) (string, *config.Config, error) {
 func newRegistry() (*providers.Registry, error) {
 	client := fetch.NewClient(5 * time.Second)
 	return builtin.NewRegistry(client)
+}
+
+func writeln(w io.Writer, args ...any) error {
+	_, err := fmt.Fprintln(w, args...)
+	return err
+}
+
+func writef(w io.Writer, format string, args ...any) error {
+	_, err := fmt.Fprintf(w, format, args...)
+	return err
 }

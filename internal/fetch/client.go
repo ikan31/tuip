@@ -46,7 +46,9 @@ func (c *Client) GetJSON(ctx context.Context, url string, target any) error {
 	if err != nil {
 		return fmt.Errorf("request %s: %w", url, err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return fmt.Errorf("request %s: unexpected status %s", url, resp.Status)
