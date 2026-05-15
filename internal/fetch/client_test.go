@@ -35,6 +35,26 @@ func TestGetJSONSuccessAndHeaders(t *testing.T) {
 	}
 }
 
+func TestGetTextSuccess(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.Header.Get("Accept"); !strings.Contains(got, "text/html") {
+			t.Fatalf("Accept header = %q, want text/html", got)
+		}
+		_, _ = w.Write([]byte(`hello`))
+	}))
+	t.Cleanup(server.Close)
+
+	body, err := NewClient(5*time.Second).GetText(context.Background(), server.URL)
+	if err != nil {
+		t.Fatalf("GetText() error = %v", err)
+	}
+	if body != "hello" {
+		t.Fatalf("GetText() = %q, want hello", body)
+	}
+}
+
 func TestGetJSONNon2xxReturnsError(t *testing.T) {
 	t.Parallel()
 

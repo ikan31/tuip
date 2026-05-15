@@ -13,6 +13,7 @@ type Metadata struct {
 	Aliases     []string
 	Name        string
 	Description string
+	Category    string
 	SourceURL   string
 	APIURL      string
 }

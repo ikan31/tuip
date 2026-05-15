@@ -22,6 +22,33 @@ go build -o tuip ./cmd/tuip
 ./tuip --help
 ```
 
+## TUI
+
+Open the terminal dashboard:
+
+```bash
+tuip
+```
+
+The TUI loads the configured default dashboard. If no default dashboard exists yet, it shows an `all` dashboard with every built-in provider.
+
+TUI management pane:
+
+- Select visible actions like `(c)reate dashboard`, `(r)ename dashboard`, `(d)elete dashboard`, `(s)et dashboard default`, and `Providers: A-Z/category` with `enter`.
+- Select a dashboard with `enter`.
+- Select a provider with `enter` to add/remove it from the current dashboard; configured providers are marked with `*`.
+- Select `Search providers` under the providers section, or press `/`, to fuzzy-search providers.
+
+TUI navigation shortcuts:
+
+- `tab` switches focus between management and status panes
+- `j`/`k` or arrow keys move in the focused pane
+- `enter` opens selected status details from the status pane
+- `d` also opens selected status details from the status pane
+- `esc` closes provider details when open
+- `r` refreshes the current dashboard
+- `q` quits
+
 ## Status checks
 
 Check explicit providers:
@@ -58,6 +85,13 @@ List built-in providers:
 
 ```bash
 tuip providers list
+```
+
+Fuzzy-search built-in providers:
+
+```bash
+tuip providers search github eu
+tuip providers search gheceu
 ```
 
 Current provider sources:

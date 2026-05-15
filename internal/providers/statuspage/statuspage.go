@@ -18,6 +18,7 @@ type Options struct {
 	Aliases     []string
 	Name        string
 	Description string
+	Category    string
 	SourceURL   string
 	APIURL      string
 	SummaryURL  string
@@ -39,6 +40,7 @@ func (p *Provider) Metadata() providers.Metadata {
 		Aliases:     p.options.Aliases,
 		Name:        p.options.Name,
 		Description: p.options.Description,
+		Category:    p.options.Category,
 		SourceURL:   p.options.SourceURL,
 		APIURL:      p.options.APIURL,
 	}

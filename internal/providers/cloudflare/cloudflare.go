@@ -17,6 +17,7 @@ func New(client *fetch.Client) *statuspage.Provider {
 		ID:          "cloudflare",
 		Name:        "Cloudflare",
 		Description: "Cloudflare service status",
+		Category:    "Infrastructure",
 		SourceURL:   sourceURL,
 		APIURL:      apiURL,
 		SummaryURL:  summaryURL,

@@ -38,8 +38,6 @@ func CheckProviders(ctx context.Context, registry *providers.Registry, providerI
 	var hadRuntimeError bool
 
 	for i, providerID := range providerIDs {
-		i := i
-		providerID := providerID
 		provider, _ := registry.Get(providerID)
 		metadata := provider.Metadata()
 

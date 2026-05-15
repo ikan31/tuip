@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+
+	"github.com/lithammer/fuzzysearch/fuzzy"
 )
 
 // Factory constructs a provider. Factories are used so providers can be
@@ -100,6 +102,34 @@ func (r *Registry) Metadata() []Metadata {
 	return items
 }
 
+// Search returns registered provider metadata matching query, ranked by fuzzy
+// relevance. An empty query returns the same ID-sorted list as Metadata.
+func (r *Registry) Search(query string) []Metadata {
+	query = strings.ToLower(strings.TrimSpace(query))
+	if query == "" {
+		return r.Metadata()
+	}
+
+	matches := make([]providerSearchMatch, 0, len(r.entries))
+	for _, item := range r.Metadata() {
+		if score, ok := providerSearchScore(item, query); ok {
+			matches = append(matches, providerSearchMatch{metadata: item, score: score})
+		}
+	}
+	sort.SliceStable(matches, func(i, j int) bool {
+		if matches[i].score == matches[j].score {
+			return matches[i].metadata.ID < matches[j].metadata.ID
+		}
+		return matches[i].score < matches[j].score
+	})
+
+	items := make([]Metadata, 0, len(matches))
+	for _, match := range matches {
+		items = append(items, match.metadata)
+	}
+	return items
+}
+
 // Has reports whether a provider ID or alias is registered.
 func (r *Registry) Has(id string) bool {
 	_, ok := r.CanonicalID(id)
@@ -138,6 +168,112 @@ func (r *Registry) CanonicalIDs(ids []string) ([]string, error) {
 func (r *Registry) ValidateIDs(ids []string) error {
 	_, err := r.CanonicalIDs(ids)
 	return err
+}
+
+type providerSearchMatch struct {
+	metadata Metadata
+	score    int
+}
+
+func providerSearchScore(metadata Metadata, query string) (int, bool) {
+	if tokens := strings.Fields(query); len(tokens) > 1 {
+		return providerTokenSearchScore(metadata, tokens)
+	}
+
+	fields := []struct {
+		value  string
+		weight int
+		fuzzy  bool
+	}{
+		{value: metadata.ID, weight: 0, fuzzy: true},
+		{value: strings.Join(metadata.Aliases, " "), weight: 2, fuzzy: true},
+		{value: metadata.Name, weight: 4, fuzzy: true},
+		{value: metadata.Category, weight: 8},
+		{value: metadata.Description, weight: 12},
+	}
+
+	best := 0
+	matched := false
+	for _, field := range fields {
+		if strings.TrimSpace(field.value) == "" {
+			continue
+		}
+		fieldScore, ok := searchScore(field.value, query, field.fuzzy)
+		if !ok {
+			continue
+		}
+		score := field.weight + fieldScore
+		if !matched || score < best {
+			best = score
+			matched = true
+		}
+	}
+	return best, matched
+}
+
+func providerTokenSearchScore(metadata Metadata, tokens []string) (int, bool) {
+	fields := []struct {
+		value  string
+		weight int
+		fuzzy  bool
+	}{
+		{value: metadata.ID, weight: 0, fuzzy: true},
+		{value: strings.Join(metadata.Aliases, " "), weight: 2, fuzzy: true},
+		{value: metadata.Name, weight: 4, fuzzy: true},
+		{value: metadata.Category, weight: 8},
+		{value: metadata.Description, weight: 12},
+	}
+
+	total := 0
+	for _, token := range tokens {
+		best := 0
+		matched := false
+		for _, field := range fields {
+			if strings.TrimSpace(field.value) == "" {
+				continue
+			}
+			fieldScore, ok := searchScore(field.value, token, field.fuzzy)
+			if !ok {
+				continue
+			}
+			score := field.weight + fieldScore
+			if !matched || score < best {
+				best = score
+				matched = true
+			}
+		}
+		if !matched {
+			return 0, false
+		}
+		total += best
+	}
+	return total, true
+}
+
+func searchScore(value, query string, allowFuzzy bool) (int, bool) {
+	value = strings.TrimSpace(value)
+	query = strings.TrimSpace(query)
+	if value == "" || query == "" {
+		return 0, query == ""
+	}
+
+	lowerValue := strings.ToLower(value)
+	lowerQuery := strings.ToLower(query)
+	if lowerValue == lowerQuery {
+		return 0, true
+	}
+	if strings.HasPrefix(lowerValue, lowerQuery) {
+		return 10, true
+	}
+	if idx := strings.Index(lowerValue, lowerQuery); idx >= 0 {
+		return 30 + idx, true
+	}
+	if allowFuzzy && len([]rune(lowerQuery)) >= 3 {
+		if rank := fuzzy.RankMatchFold(query, value); rank >= 0 {
+			return 100 + rank, true
+		}
+	}
+	return 0, false
 }
 
 func normalizeID(id string) string {

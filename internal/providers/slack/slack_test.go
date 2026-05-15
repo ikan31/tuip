@@ -55,6 +55,28 @@ func TestProviderFetchOKFixture(t *testing.T) {
 	}
 }
 
+func TestParseSlackComponents(t *testing.T) {
+	page := `<div id="services">
+		<div class="service header align_center"><div><p class="bold">Login/SSO</p><p class="tiny">No issues</p></div></div>
+		<div class="service header align_center"><div><p class="bold">Messaging</p><p class="tiny">Incident</p></div></div>
+		<div class="service header align_center"><div><p class="bold">Files</p><p class="tiny">Outage</p></div></div>
+	</div>`
+
+	components := parseSlackComponents(page)
+	if len(components) != 3 {
+		t.Fatalf("components len = %d, want 3", len(components))
+	}
+	if components[0].Name != "Login/SSO" || components[0].State != status.StateOperational {
+		t.Fatalf("component[0] = %#v", components[0])
+	}
+	if components[1].Name != "Messaging" || components[1].State != status.StateDegraded {
+		t.Fatalf("component[1] = %#v", components[1])
+	}
+	if components[2].Name != "Files" || components[2].State != status.StateMajorOutage {
+		t.Fatalf("component[2] = %#v", components[2])
+	}
+}
+
 func TestProviderFetchIncidentFixture(t *testing.T) {
 	provider := providerWithFixture(t, "slack_current_incident.json")
 	snapshot, err := provider.Fetch(context.Background())

@@ -78,6 +78,61 @@ func TestDashboardConfigRoundTrip(t *testing.T) {
 	}
 }
 
+func TestRenameDashboardUpdatesDefault(t *testing.T) {
+	cfg := New()
+	if err := cfg.CreateDashboard("work"); err != nil {
+		t.Fatalf("CreateDashboard(work) error = %v", err)
+	}
+	if err := cfg.AddProviders("work", []string{"slack"}); err != nil {
+		t.Fatalf("AddProviders() error = %v", err)
+	}
+	if err := cfg.RenameDashboard("work", "ops"); err != nil {
+		t.Fatalf("RenameDashboard() error = %v", err)
+	}
+	if cfg.DefaultDashboard != "ops" {
+		t.Fatalf("DefaultDashboard = %q, want ops", cfg.DefaultDashboard)
+	}
+	if _, ok := cfg.GetDashboard("work"); ok {
+		t.Fatalf("old dashboard still exists")
+	}
+	dashboard, ok := cfg.GetDashboard("ops")
+	if !ok {
+		t.Fatalf("renamed dashboard missing")
+	}
+	if got, want := dashboard.ProviderIDs(), []string{"slack"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("ProviderIDs() = %#v, want %#v", got, want)
+	}
+}
+
+func TestSetDefaultDashboardAllowsAllVirtualDashboard(t *testing.T) {
+	cfg := New()
+	if err := cfg.SetDefaultDashboard(AllDashboard); err != nil {
+		t.Fatalf("SetDefaultDashboard(all) error = %v", err)
+	}
+	if cfg.DefaultDashboard != AllDashboard {
+		t.Fatalf("DefaultDashboard = %q, want all", cfg.DefaultDashboard)
+	}
+}
+
+func TestDeleteDashboardSelectsNewDefault(t *testing.T) {
+	cfg := New()
+	if err := cfg.CreateDashboard("work"); err != nil {
+		t.Fatalf("CreateDashboard(work) error = %v", err)
+	}
+	if err := cfg.CreateDashboard("ops"); err != nil {
+		t.Fatalf("CreateDashboard(ops) error = %v", err)
+	}
+	if err := cfg.DeleteDashboard("work"); err != nil {
+		t.Fatalf("DeleteDashboard() error = %v", err)
+	}
+	if _, ok := cfg.GetDashboard("work"); ok {
+		t.Fatalf("deleted dashboard still exists")
+	}
+	if cfg.DefaultDashboard != "ops" {
+		t.Fatalf("DefaultDashboard = %q, want ops", cfg.DefaultDashboard)
+	}
+}
+
 func TestAddProvidersIgnoresDuplicatesAndRemoveProviders(t *testing.T) {
 	cfg := New()
 	if err := cfg.CreateDashboard("work"); err != nil {

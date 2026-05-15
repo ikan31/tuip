@@ -1,0 +1,46 @@
+version: "2"
+
+linters:
+  # enable:
+  #   - errcheck       # ensures errors are handled
+  #   - errorlint      # enforces proper error wrapping (your preference)
+  #   - govet          # catches common mistakes
+  #   - staticcheck    # broad static analysis
+  #   - unused         # catches unused code
+  #   - ineffassign    # catches assignments that are never used
+  default: all
+
+  disable:
+    - funlen         # no function length limits (your preference)
+    - cyclop         # no cyclomatic complexity limits
+    - gocognit       # no cognitive complexity limits
+    - gocyclo        # no cyclomatic complexity limits
+    - maintidx       # no maintainability index
+
+linters-settings:
+  errorlint:
+    errorf: true        # enforce %w for error wrapping
+    asserts: true
+    comparison: true
+
+  govet:
+    enable:
+      - shadow          # catches accidental variable shadowing (helps with your err != nil style)
+
+issues:
+  exclude-rules:
+    # if you ever pull in generated files
+    - path: ".*\\.gen\\.go"
+      linters:
+        - all
+
+formatters:
+  # Enable specific formatter.
+  # Default: [] (uses standard Go formatting)
+  enable:
+    - gci
+    - gofmt
+    - gofumpt
+    - goimports
+    - golines
+    - swaggo

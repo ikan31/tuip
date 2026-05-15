@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/tuipcli/tuip/internal/config"
+	"github.com/tuipcli/tuip/internal/providers"
 )
 
 func TestDashboardCreateWithProviders(t *testing.T) {
@@ -104,6 +105,30 @@ func TestDashboardAddRemoveCommands(t *testing.T) {
 	}
 }
 
+func TestStatusDefaultAllDashboard(t *testing.T) {
+	t.Parallel()
+
+	configPath := filepath.Join(t.TempDir(), "config.yaml")
+	cfg := config.New()
+	if err := cfg.SetDefaultDashboard(config.AllDashboard); err != nil {
+		t.Fatalf("SetDefaultDashboard(all) error = %v", err)
+	}
+	if err := config.Save(configPath, cfg); err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+
+	providerIDs, err := resolveStatusProviderIDs(configPath, testRegistry(t), "", nil)
+	if err != nil {
+		t.Fatalf("resolveStatusProviderIDs() error = %v", err)
+	}
+	if len(providerIDs) == 0 {
+		t.Fatalf("providerIDs is empty")
+	}
+	if !containsString(providerIDs, "slack") || !containsString(providerIDs, "cloudflare") {
+		t.Fatalf("providerIDs = %#v, want built-in providers", providerIDs)
+	}
+}
+
 func TestStatusRejectsExplicitProvidersAndDashboardTogether(t *testing.T) {
 	t.Parallel()
 
@@ -113,6 +138,21 @@ func TestStatusRejectsExplicitProvidersAndDashboardTogether(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "pass either explicit providers or --dashboard") {
 		t.Fatalf("error = %q", err.Error())
+	}
+}
+
+func TestProvidersSearchCommand(t *testing.T) {
+	t.Parallel()
+
+	stdout, _, err := executeCommand("providers", "search", "ghec", "eu")
+	if err != nil {
+		t.Fatalf("executeCommand() error = %v", err)
+	}
+	if !strings.Contains(stdout, "github-enterprise-cloud-eu") {
+		t.Fatalf("stdout = %q, want GitHub Enterprise Cloud EU", stdout)
+	}
+	if strings.Contains(stdout, "slack") {
+		t.Fatalf("stdout = %q, did not expect slack", stdout)
 	}
 }
 
@@ -126,6 +166,24 @@ func TestProvidersListRejectsArgs(t *testing.T) {
 	if !strings.Contains(err.Error(), "unknown command") && !strings.Contains(err.Error(), "accepts 0 arg") {
 		t.Fatalf("error = %q", err.Error())
 	}
+}
+
+func testRegistry(t *testing.T) *providers.Registry {
+	t.Helper()
+	registry, err := newRegistry()
+	if err != nil {
+		t.Fatalf("newRegistry() error = %v", err)
+	}
+	return registry
+}
+
+func containsString(values []string, want string) bool {
+	for _, value := range values {
+		if value == want {
+			return true
+		}
+	}
+	return false
 }
 
 func executeCommand(args ...string) (string, string, error) {

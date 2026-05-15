@@ -11,7 +11,10 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-const CurrentVersion = 1
+const (
+	CurrentVersion = 1
+	AllDashboard   = "all"
+)
 
 // Config is tuip's shareable dashboard configuration file.
 type Config struct {
@@ -146,9 +149,50 @@ func (c *Config) CreateDashboard(name string) error {
 	return nil
 }
 
+// RenameDashboard renames a dashboard while preserving its services.
+func (c *Config) RenameDashboard(oldName, newName string) error {
+	c.normalize()
+	if oldName == "" || newName == "" {
+		return fmt.Errorf("dashboard name is required")
+	}
+	dashboard, exists := c.Dashboards[oldName]
+	if !exists {
+		return fmt.Errorf("dashboard %q does not exist", oldName)
+	}
+	if _, exists := c.Dashboards[newName]; exists {
+		return fmt.Errorf("dashboard %q already exists", newName)
+	}
+	delete(c.Dashboards, oldName)
+	c.Dashboards[newName] = dashboard
+	if c.DefaultDashboard == oldName {
+		c.DefaultDashboard = newName
+	}
+	return nil
+}
+
+// DeleteDashboard removes a dashboard.
+func (c *Config) DeleteDashboard(name string) error {
+	c.normalize()
+	if _, exists := c.Dashboards[name]; !exists {
+		return fmt.Errorf("dashboard %q does not exist", name)
+	}
+	delete(c.Dashboards, name)
+	if c.DefaultDashboard == name {
+		c.DefaultDashboard = ""
+		if names := c.DashboardNames(); len(names) > 0 {
+			c.DefaultDashboard = names[0]
+		}
+	}
+	return nil
+}
+
 // SetDefaultDashboard sets the configured default dashboard.
 func (c *Config) SetDefaultDashboard(name string) error {
 	c.normalize()
+	if name == AllDashboard {
+		c.DefaultDashboard = name
+		return nil
+	}
 	if _, exists := c.Dashboards[name]; !exists {
 		return fmt.Errorf("dashboard %q does not exist", name)
 	}

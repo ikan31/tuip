@@ -17,6 +17,7 @@ import (
 	"github.com/tuipcli/tuip/internal/output"
 	"github.com/tuipcli/tuip/internal/providers"
 	"github.com/tuipcli/tuip/internal/providers/builtin"
+	"github.com/tuipcli/tuip/internal/tui"
 )
 
 const version = "0.1.0"
@@ -38,6 +39,10 @@ tuip dashboard add work slack github cloudflare`),
 		Version:       version,
 		SilenceUsage:  true,
 		SilenceErrors: true,
+		Args:          cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return tui.Run(cmd.Context(), configPath)
+		},
 	}
 	root.PersistentFlags().StringVar(&configPath, "config", "", "config file path (defaults to OS user config dir)")
 
@@ -73,7 +78,7 @@ tuip status --dashboard work`),
 				return err
 			}
 
-			providerIDs, err := resolveStatusProviderIDs(*configPath, dashboardName, args)
+			providerIDs, err := resolveStatusProviderIDs(*configPath, registry, dashboardName, args)
 			if err != nil {
 				return err
 			}
@@ -123,17 +128,25 @@ func newProvidersCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			writer := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 2, ' ', 0)
-			if err := writeln(writer, "ID\tALIASES\tNAME\tSOURCE\tAPI"); err != nil {
+			return writeProviderMetadataTable(cmd.OutOrStdout(), registry.Metadata())
+		},
+	})
+	cmd.AddCommand(&cobra.Command{
+		Use:     "search <query>",
+		Aliases: []string{"find"},
+		Short:   "Fuzzy-search built-in providers",
+		Example: "tuip providers search github eu",
+		Args:    cobra.MinimumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			registry, err := newRegistry()
+			if err != nil {
 				return err
 			}
-			for _, metadata := range registry.Metadata() {
-				aliases := strings.Join(metadata.Aliases, ", ")
-				if err := writef(writer, "%s\t%s\t%s\t%s\t%s\n", metadata.ID, aliases, metadata.Name, metadata.SourceURL, metadata.APIURL); err != nil {
-					return err
-				}
+			matches := registry.Search(strings.Join(args, " "))
+			if len(matches) == 0 {
+				return writeln(cmd.OutOrStdout(), "no providers matched")
 			}
-			return writer.Flush()
+			return writeProviderMetadataTable(cmd.OutOrStdout(), matches)
 		},
 	})
 	return cmd
@@ -351,7 +364,7 @@ tuip status`),
 	return dashboards
 }
 
-func resolveStatusProviderIDs(configPath, dashboardName string, args []string) ([]string, error) {
+func resolveStatusProviderIDs(configPath string, registry *providers.Registry, dashboardName string, args []string) ([]string, error) {
 	if len(args) > 0 && dashboardName != "" {
 		return nil, fmt.Errorf("pass either explicit providers or --dashboard, not both")
 	}
@@ -374,6 +387,9 @@ func resolveStatusProviderIDs(configPath, dashboardName string, args []string) (
 	if name == "" {
 		return nil, fmt.Errorf("no default dashboard configured; pass providers explicitly or run `tuip dashboard use <name>`")
 	}
+	if name == config.AllDashboard {
+		return allProviderIDs(registry), nil
+	}
 	dashboard, ok := cfg.GetDashboard(name)
 	if !ok {
 		return nil, fmt.Errorf("dashboard %q does not exist", name)
@@ -383,6 +399,15 @@ func resolveStatusProviderIDs(configPath, dashboardName string, args []string) (
 		return nil, fmt.Errorf("dashboard %q has no providers", name)
 	}
 	return normalizeProviderIDs(providerIDs), nil
+}
+
+func allProviderIDs(registry *providers.Registry) []string {
+	metadata := registry.Metadata()
+	ids := make([]string, 0, len(metadata))
+	for _, item := range metadata {
+		ids = append(ids, item.ID)
+	}
+	return ids
 }
 
 func normalizeProviderIDs(ids []string) []string {
@@ -504,6 +529,20 @@ func stringCompletions(values []string, args []string, toComplete string) []stri
 		matches = append(matches, value)
 	}
 	return matches
+}
+
+func writeProviderMetadataTable(w io.Writer, metadata []providers.Metadata) error {
+	writer := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
+	if err := writeln(writer, "ID\tALIASES\tCATEGORY\tNAME\tSOURCE\tAPI"); err != nil {
+		return err
+	}
+	for _, item := range metadata {
+		aliases := strings.Join(item.Aliases, ", ")
+		if err := writef(writer, "%s\t%s\t%s\t%s\t%s\t%s\n", item.ID, aliases, item.Category, item.Name, item.SourceURL, item.APIURL); err != nil {
+			return err
+		}
+	}
+	return writer.Flush()
 }
 
 func writeln(w io.Writer, args ...any) error {
