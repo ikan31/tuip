@@ -2,6 +2,7 @@ package pagerdutystatus
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -48,11 +49,14 @@ func (p *Provider) Metadata() providers.Metadata {
 
 func (p *Provider) Fetch(ctx context.Context) (status.Snapshot, error) {
 	var payload dataResponse
-	if err := p.client.GetJSON(ctx, p.options.DataURL, &payload); err != nil {
-		return status.Snapshot{}, err
+
+	err := p.client.GetJSON(ctx, p.options.DataURL, &payload)
+	if err != nil {
+		return status.Snapshot{}, fmt.Errorf("fetch %s status: %w", p.options.ID, err)
 	}
 
 	checkedAt := time.Now().UTC()
+
 	summary := strings.TrimSpace(payload.Layout.LayoutSettings.StatusPage.GlobalStatusHeadline)
 	if summary == "" {
 		summary = "Unknown status"
@@ -76,6 +80,7 @@ func (p *Provider) Fetch(ctx context.Context) (status.Snapshot, error) {
 // status model.
 func MapHeadline(headline string) status.State {
 	normalized := strings.ToLower(strings.TrimSpace(headline))
+
 	switch {
 	case normalized == "":
 		return status.StateUnknown
@@ -100,6 +105,7 @@ func firstNonEmpty(values ...string) string {
 			return value
 		}
 	}
+
 	return ""
 }
 

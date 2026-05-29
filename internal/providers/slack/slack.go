@@ -2,6 +2,7 @@ package slack
 
 import (
 	"context"
+	"fmt"
 	"html"
 	"regexp"
 	"strconv"
@@ -17,6 +18,7 @@ const (
 	currentStatusURL = "https://status.slack.com/api/v2.0.0/current"
 	sourceURL        = "https://slack-status.com/"
 	apiURL           = "https://docs.slack.dev/reference/slack-status-api/"
+	paragraphMatches = 2
 )
 
 // Provider fetches Slack's custom status API.
@@ -54,8 +56,10 @@ func (p *Provider) Metadata() providers.Metadata { return p.metadata }
 
 func (p *Provider) Fetch(ctx context.Context) (status.Snapshot, error) {
 	var payload currentResponse
-	if err := p.client.GetJSON(ctx, p.endpoint, &payload); err != nil {
-		return status.Snapshot{}, err
+
+	err := p.client.GetJSON(ctx, p.endpoint, &payload)
+	if err != nil {
+		return status.Snapshot{}, fmt.Errorf("fetch Slack status: %w", err)
 	}
 
 	checkedAt := time.Now().UTC()
@@ -76,7 +80,9 @@ func (p *Provider) Fetch(ctx context.Context) (status.Snapshot, error) {
 	}
 
 	components := []status.Component{}
-	if page, err := p.client.GetText(ctx, p.statusPage); err == nil {
+
+	page, textErr := p.client.GetText(ctx, p.statusPage)
+	if textErr == nil {
 		components = parseSlackComponents(page)
 	}
 
@@ -115,12 +121,15 @@ func slackSummary(apiStatus string, activeIncidentCount int) string {
 	if activeIncidentCount == 1 {
 		return "1 active incident"
 	}
+
 	if activeIncidentCount > 1 {
 		return strconv.Itoa(activeIncidentCount) + " active incidents"
 	}
+
 	if strings.EqualFold(apiStatus, "ok") || apiStatus == "" {
 		return "All systems operational"
 	}
+
 	return "Slack status: " + apiStatus
 }
 
@@ -136,22 +145,28 @@ func parseSlackComponents(page string) []status.Component {
 	}
 
 	components := make([]status.Component, 0, len(parts)-1)
+
 	for _, part := range parts[1:] {
 		matches := slackParagraphPattern.FindAllStringSubmatch(part, -1)
-		if len(matches) < 2 {
+		if len(matches) < paragraphMatches {
 			continue
 		}
+
 		name := cleanSlackHTML(matches[0][1])
+
 		statusText := cleanSlackHTML(matches[1][1])
+
 		if name == "" || statusText == "" {
 			continue
 		}
+
 		components = append(components, status.Component{
 			Name:   name,
 			Status: statusText,
 			State:  mapSlackServiceStatus(statusText),
 		})
 	}
+
 	return components
 }
 
@@ -175,6 +190,7 @@ func mapSlackServiceStatus(value string) status.State {
 func cleanSlackHTML(value string) string {
 	value = html.UnescapeString(value)
 	value = slackTagPattern.ReplaceAllString(value, " ")
+
 	return strings.Join(strings.Fields(value), " ")
 }
 
@@ -183,11 +199,14 @@ func parseSlackTime(value string) *time.Time {
 	if value == "" {
 		return nil
 	}
+
 	parsed, err := time.Parse(time.RFC3339, value)
 	if err != nil {
 		return nil
 	}
+
 	utc := parsed.UTC()
+
 	return &utc
 }
 
@@ -217,5 +236,6 @@ func (i slackIncident) TypeOrDefault() string {
 	if strings.TrimSpace(i.Type) == "" {
 		return "incident"
 	}
+
 	return i.Type
 }

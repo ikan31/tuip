@@ -2,6 +2,7 @@ package output
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 
 	"github.com/tuipcli/tuip/internal/status"
@@ -11,5 +12,11 @@ import (
 func WriteJSON(w io.Writer, response status.Response) error {
 	encoder := json.NewEncoder(w)
 	encoder.SetIndent("", "  ")
-	return encoder.Encode(response)
+
+	err := encoder.Encode(response)
+	if err != nil {
+		return fmt.Errorf("write JSON output: %w", err)
+	}
+
+	return nil
 }

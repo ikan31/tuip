@@ -2,6 +2,7 @@ package statuspage
 
 import (
 	"context"
+	"fmt"
 	"html"
 	"regexp"
 	"strings"
@@ -48,14 +49,18 @@ func (p *Provider) Metadata() providers.Metadata {
 
 func (p *Provider) Fetch(ctx context.Context) (status.Snapshot, error) {
 	var payload summaryResponse
-	if err := p.client.GetJSON(ctx, p.options.SummaryURL, &payload); err != nil {
-		return status.Snapshot{}, err
+
+	err := p.client.GetJSON(ctx, p.options.SummaryURL, &payload)
+	if err != nil {
+		return status.Snapshot{}, fmt.Errorf("fetch %s status: %w", p.options.ID, err)
 	}
 
 	checkedAt := time.Now().UTC()
 	updatedAt := parseTime(payload.Page.UpdatedAt)
 	state := MapIndicator(payload.Status.Indicator)
+
 	summary := strings.TrimSpace(payload.Status.Description)
+
 	if summary == "" {
 		summary = state.Display()
 	}
@@ -64,6 +69,7 @@ func (p *Provider) Fetch(ctx context.Context) (status.Snapshot, error) {
 	for _, incident := range payload.Incidents {
 		incidents = append(incidents, mapIncident(incident))
 	}
+
 	for _, maintenance := range payload.ScheduledMaintenances {
 		mapped := mapIncident(maintenance)
 		mapped.Kind = "maintenance"
@@ -150,11 +156,13 @@ func latestIncidentUpdate(updates []incidentUpdateResponse) string {
 	if len(updates) == 0 {
 		return ""
 	}
+
 	return cleanHTML(updates[0].Body)
 }
 
 func mapComponents(components []componentResponse) []status.Component {
 	groupNames := map[string]string{}
+
 	for _, component := range components {
 		if component.Group {
 			groupNames[component.ID] = component.Name
@@ -162,10 +170,12 @@ func mapComponents(components []componentResponse) []status.Component {
 	}
 
 	mapped := make([]status.Component, 0, len(components))
+
 	for _, component := range components {
 		if component.Group {
 			continue
 		}
+
 		mapped = append(mapped, status.Component{
 			Name:   component.Name,
 			Status: component.Status,
@@ -173,6 +183,7 @@ func mapComponents(components []componentResponse) []status.Component {
 			Group:  groupNames[component.GroupID],
 		})
 	}
+
 	return mapped
 }
 
@@ -183,6 +194,7 @@ func hasInProgressMaintenance(maintenances []incidentResponse) bool {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -191,11 +203,14 @@ func parseTime(value string) *time.Time {
 	if value == "" {
 		return nil
 	}
+
 	parsed, err := time.Parse(time.RFC3339, value)
 	if err != nil {
 		return nil
 	}
+
 	utc := parsed.UTC()
+
 	return &utc
 }
 
@@ -204,6 +219,7 @@ var htmlTagPattern = regexp.MustCompile(`<[^>]*>`)
 func cleanHTML(value string) string {
 	value = html.UnescapeString(value)
 	value = htmlTagPattern.ReplaceAllString(value, " ")
+
 	return strings.Join(strings.Fields(value), " ")
 }
 

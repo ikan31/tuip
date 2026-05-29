@@ -1,55 +1,46 @@
 # tuip
 
-`tuip` is a Go CLI-first foundation for a future terminal UI that aggregates SaaS status pages into shareable dashboards.
+`tuip` is a terminal-first SaaS status dashboard. It checks public vendor status APIs, normalizes them into one status model, and lets you use the same engine from either a scriptable CLI or an interactive TUI.
 
-The current MVP fetches normalized status for a small reliable provider set:
+Use it to answer questions like:
 
-- Slack
-- GitHub
-- GitHub Enterprise Cloud regional status pages
-- Cloudflare
+- "Is GitHub, Slack, Cloudflare, or Jira degraded right now?"
+- "What providers are in my work dashboard?"
+- "Can I get machine-readable status JSON for automation?"
+
+## Features
+
+- **CLI-first engine** for status checks, JSON output, provider discovery, and dashboard config management.
+- **Interactive TUI** launched with `tuip` for browsing dashboards, providers, status cards, and details.
+- **Shareable YAML dashboards** with provider IDs that can be committed or copied between machines.
+- **Normalized states** across different providers: `operational`, `degraded`, `partial_outage`, `major_outage`, `maintenance`, `unknown`, and `error`.
+- **Provider details** when available: active incidents, scheduled maintenance, components, source URL, checked time, and provider update time.
+- **Persistent TUI status cache** so dashboard switches can reuse fresh provider results instead of refetching every subset.
+- **Optional JSONL diagnostics logs** for provider fetch timing, cache hits/misses, retries, and errors.
+- **No credentials required** for built-in providers; sources are public status APIs/pages.
 
 ## Install / run locally
+
+Run from source:
 
 ```bash
 go run ./cmd/tuip --help
 ```
 
-Or build a local binary:
+Build a local binary:
 
 ```bash
 go build -o tuip ./cmd/tuip
 ./tuip --help
 ```
 
-## TUI
-
-Open the terminal dashboard:
+Install with Go:
 
 ```bash
-tuip
+go install ./cmd/tuip
 ```
 
-The TUI loads the configured default dashboard. If no default dashboard exists yet, it shows an `all` dashboard with every built-in provider.
-
-TUI management pane:
-
-- Select visible actions like `(c)reate dashboard`, `(r)ename dashboard`, `(d)elete dashboard`, `(s)et dashboard default`, and `Providers: A-Z/category` with `enter`.
-- Select a dashboard with `enter`.
-- Select a provider with `enter` to add/remove it from the current dashboard; configured providers are marked with `*`.
-- Select `Search providers` under the providers section, or press `/`, to fuzzy-search providers.
-
-TUI navigation shortcuts:
-
-- `tab` switches focus between management and status panes
-- `j`/`k` or arrow keys move in the focused pane
-- `enter` opens selected status details from the status pane
-- `d` also opens selected status details from the status pane
-- `esc` closes provider details when open
-- `r` refreshes the current dashboard
-- `q` quits
-
-## Status checks
+## Quick start
 
 Check explicit providers:
 
@@ -57,29 +48,11 @@ Check explicit providers:
 tuip status slack github cloudflare
 ```
 
-Human output is rendered as colored terminal cards.
-
-Get standardized JSON:
+Open the interactive dashboard:
 
 ```bash
-tuip status --json slack github cloudflare
+tuip
 ```
-
-Show active incidents, scheduled maintenance, and component details when available:
-
-```bash
-tuip status --details cloudflare
-```
-
-By default, a degraded upstream service does **not** mean `tuip` failed. The command exits non-zero for tuip/runtime errors like unknown providers, timeouts, or invalid API responses.
-
-For automation, you can opt into non-zero exits for unhealthy services:
-
-```bash
-tuip status --fail-on-degraded slack github cloudflare
-```
-
-## Providers
 
 List built-in providers:
 
@@ -87,25 +60,133 @@ List built-in providers:
 tuip providers list
 ```
 
-Fuzzy-search built-in providers:
+Create a reusable dashboard:
 
 ```bash
-tuip providers search github eu
-tuip providers search gheceu
+tuip dashboard create work slack github jira asana cloudflare
+tuip dashboard use work
+tuip status
 ```
 
-Current provider sources:
+## CLI reference
 
-- Slack uses Slack's status API: <https://docs.slack.dev/reference/slack-status-api/>
-- GitHub uses Statuspage JSON from <https://www.githubstatus.com/#>
-- GitHub Enterprise Cloud EU uses Statuspage JSON from <https://eu.githubstatus.com/>
-- GitHub Enterprise Cloud Australia/Japan/US use PagerDuty status-page JSON from `/api/data`
-- GitHub Enterprise Cloud regional providers have short aliases: `github-au`, `github-eu`, `github-jp`, `github-us` plus `ghec-au`, `ghec-eu`, `ghec-jp`, `ghec-us`
-- Cloudflare uses Statuspage JSON documented from <https://www.cloudflarestatus.com/api>
+The CLI is the engine for `tuip`. The TUI uses the same provider registry, status orchestration, normalized model, and dashboard config packages that these commands use.
+
+Global flags:
+
+- `--config <path>` overrides the config file path.
+- `--log-level <off|debug|info|warn|error>` enables diagnostics logging. It defaults to `TUIP_LOG_LEVEL`, then `off`.
+
+### `tuip status`
+
+Fetch provider statuses.
+
+```bash
+tuip status [provider...]
+```
+
+Examples:
+
+```bash
+tuip status slack github cloudflare
+tuip status --details cloudflare
+tuip status --json github jira asana
+tuip status --dashboard work
+tuip status --fail-on-degraded github cloudflare
+```
+
+Flags:
+
+- `--json` writes normalized JSON for scripts.
+- `--details` includes incidents, scheduled maintenance, and components when the provider exposes them.
+- `--dashboard <name>` checks a named configured dashboard.
+- `--fail-on-degraded` exits non-zero when a successfully checked provider is not healthy.
+
+Exit behavior:
+
+- Runtime/check failures, unknown providers, invalid API responses, or timeouts exit non-zero.
+- Successfully fetched degraded/outage statuses exit `0` by default so humans can inspect them.
+- Use `--fail-on-degraded` for CI/monitoring workflows that should fail on unhealthy upstream services.
+
+### `tuip providers`
+
+Discover built-in provider IDs.
+
+```bash
+tuip providers list
+tuip providers search github eu
+tuip providers search qbo
+```
+
+Provider aliases are accepted in CLI commands and dashboard config. For example, `qbo` resolves to `quickbooks-online`, and `ghec-eu` resolves to `github-enterprise-cloud-eu`.
+
+### `tuip dashboard`
+
+Manage YAML dashboards.
+
+```bash
+tuip dashboard create work slack github cloudflare
+tuip dashboard add work jira asana
+tuip dashboard remove work github
+tuip dashboard use work
+tuip dashboard list
+tuip dashboard show work
+```
+
+`dashboard` also has the alias `dashboards`.
+
+## Interactive TUI
+
+Run the TUI with no subcommand:
+
+```bash
+tuip
+```
+
+The TUI loads the configured default dashboard. If no default dashboard exists, it shows the virtual `all` dashboard with every built-in provider.
+
+Management pane:
+
+- Select visible actions like `(c)reate dashboard`, `(r)ename dashboard`, `(d)elete dashboard`, `(s)et dashboard default`, and provider grouping with `enter`.
+- Select a dashboard with `enter`.
+- Select a provider with `enter` to add/remove it from the active dashboard; configured providers are marked with `*`.
+- Select `Search providers` under the providers section to fuzzy-search providers.
+
+Navigation:
+
+- Arrow keys or `h`/`j`/`k`/`l` move through panes and status cards.
+- `enter` selects management items or opens selected status details.
+- `esc` backs out of status/details focus without quitting the TUI.
+- `c`, `r`, `d`, and `s` trigger create, rename, delete/details, and set-default actions.
+- `R` force-refreshes the active dashboard and bypasses the cache.
+- `ctrl+c` quits.
+
+The TUI keeps a 60-second provider-level status cache. Switching from `all` to a dashboard that is a subset of `all` reuses fresh cached provider snapshots. Error snapshots are cached for only 10 seconds.
+
+## Built-in providers
+
+Current built-in providers include:
+
+- **Communication:** Slack
+- **Developer tools:** GitHub, GitHub Enterprise Cloud regional providers, Bitbucket
+- **Infrastructure:** Cloudflare
+- **Project management:** Asana, Hive, Jira, monday.com, Trello
+- **Collaboration:** Confluence
+- **CRM & sales:** Accelo, Affinity, Capsule, HubSpot, Nutshell
+- **HR & workforce:** Ashby, Greenhouse, Gusto, Officient, Workable
+- **Finance & accounting:** FreshBooks, QuickBooks Online, Xero
+- **File storage:** Box, Dropbox
+
+Provider source notes:
+
+- Most providers use Atlassian Statuspage JSON (`/api/v2/summary.json`).
+- GitHub Enterprise Cloud Australia/Japan/US use PagerDuty status-page JSON (`/api/data`).
+- Slack uses Slack's public status API for top-level status and active incidents.
+- Provider IDs are stable and intended for dashboards; use `tuip providers list` for the current full list and aliases.
 
 ## Dashboard config
 
-Dashboard config is YAML and is intended for the future TUI and for sharing setups with others.
+Dashboard config is YAML. Dashboard name `all` is reserved for tuip's virtual dashboard containing every built-in provider.
 
 Default location on macOS/Linux:
 
@@ -121,36 +202,32 @@ $XDG_CONFIG_HOME/tuip/config.yaml
 
 Windows uses the native OS user config directory.
 
-You can override it:
+Override the config path:
 
 ```bash
 tuip --config ./tuip.yaml dashboard list
 ```
 
-Create and manage dashboards:
+Runtime files live beside the configured config file:
 
-```bash
-tuip dashboard create work slack github cloudflare
-tuip dashboard add work cloudflare
-tuip dashboard use work
-tuip dashboard list
-tuip dashboard show work
-tuip dashboard remove work github
+```text
+~/.config/tuip/
+  config.yaml
+  logs/tuip.jsonl
+  cache/status-cache.json
 ```
 
-Once a default dashboard exists, this checks it:
+Diagnostics are off by default. Enable them with either:
 
 ```bash
-tuip status
+TUIP_LOG_LEVEL=debug tuip
+# or
+tuip --log-level debug
 ```
 
-Check a named dashboard:
+`tuip.jsonl` is rotated when it reaches 5MB. tuip keeps up to three older files as `tuip.1.jsonl`, `tuip.2.jsonl`, and `tuip.3.jsonl`. Each log line includes a `run_id`, `pid`, and `version` so one run can be filtered from the shared log file.
 
-```bash
-tuip status --dashboard work
-```
-
-Example YAML:
+Example config:
 
 ```yaml
 version: 1
@@ -161,15 +238,26 @@ dashboards:
     services:
       - provider: slack
       - provider: github
+      - provider: jira
+      - provider: asana
       - provider: cloudflare
 ```
 
 ## Development
 
-Run tests:
+Common commands:
 
 ```bash
 go test ./...
+make lint
+make check
 ```
 
-The architecture is documented in [`PLAN.md`](./PLAN.md).
+Build locally:
+
+```bash
+make build
+./bin/tuip --help
+```
+
+Architecture and contributor-oriented implementation notes live in [`docs/architecture.md`](./docs/architecture.md). MVP status and near-term roadmap notes live in [`docs/mvp.md`](./docs/mvp.md).

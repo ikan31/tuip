@@ -24,10 +24,9 @@ func TestMapHeadline(t *testing.T) {
 		"Something surprising":    status.StateUnknown,
 	}
 	for input, want := range tests {
-		input := input
-		want := want
 		t.Run(input, func(t *testing.T) {
 			t.Parallel()
+
 			if got := MapHeadline(input); got != want {
 				t.Fatalf("MapHeadline(%q) = %q, want %q", input, got, want)
 			}
@@ -66,12 +65,15 @@ func TestProviderFetch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Fetch() error = %v", err)
 	}
+
 	if snapshot.ProviderID != "github-enterprise-cloud-au" {
 		t.Fatalf("ProviderID = %q", snapshot.ProviderID)
 	}
+
 	if snapshot.Name != "GitHub Enterprise Cloud - Australia" {
 		t.Fatalf("Name = %q", snapshot.Name)
 	}
+
 	if snapshot.State != status.StateOperational {
 		t.Fatalf("State = %q, want %q", snapshot.State, status.StateOperational)
 	}

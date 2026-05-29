@@ -2,6 +2,7 @@ package fetch
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -16,9 +17,11 @@ func TestGetJSONSuccessAndHeaders(t *testing.T) {
 		if got := r.Header.Get("Accept"); got != "application/json" {
 			t.Fatalf("Accept header = %q, want application/json", got)
 		}
+
 		if got := r.Header.Get("User-Agent"); !strings.Contains(got, "tuip") {
 			t.Fatalf("User-Agent header = %q, want it to contain tuip", got)
 		}
+
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"ok":true}`))
 	}))
@@ -27,9 +30,12 @@ func TestGetJSONSuccessAndHeaders(t *testing.T) {
 	var response struct {
 		OK bool `json:"ok"`
 	}
-	if err := NewClient(5*time.Second).GetJSON(context.Background(), server.URL, &response); err != nil {
+
+	err := NewClient(5*time.Second).GetJSON(context.Background(), server.URL, &response)
+	if err != nil {
 		t.Fatalf("GetJSON() error = %v", err)
 	}
+
 	if !response.OK {
 		t.Fatalf("response.OK = false, want true")
 	}
@@ -42,6 +48,7 @@ func TestGetTextSuccess(t *testing.T) {
 		if got := r.Header.Get("Accept"); !strings.Contains(got, "text/html") {
 			t.Fatalf("Accept header = %q, want text/html", got)
 		}
+
 		_, _ = w.Write([]byte(`hello`))
 	}))
 	t.Cleanup(server.Close)
@@ -50,6 +57,7 @@ func TestGetTextSuccess(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetText() error = %v", err)
 	}
+
 	if body != "hello" {
 		t.Fatalf("GetText() = %q, want hello", body)
 	}
@@ -64,12 +72,23 @@ func TestGetJSONNon2xxReturnsError(t *testing.T) {
 	t.Cleanup(server.Close)
 
 	var response map[string]any
+
 	err := NewClient(5*time.Second).GetJSON(context.Background(), server.URL, &response)
 	if err == nil {
 		t.Fatalf("GetJSON() error = nil, want error")
 	}
+
 	if !strings.Contains(err.Error(), "unexpected status") {
 		t.Fatalf("GetJSON() error = %q, want unexpected status", err.Error())
+	}
+
+	var statusErr *HTTPStatusError
+	if !errors.As(err, &statusErr) {
+		t.Fatalf("GetJSON() error does not wrap HTTPStatusError: %v", err)
+	}
+
+	if statusErr.StatusCode != http.StatusInternalServerError {
+		t.Fatalf("StatusCode = %d, want %d", statusErr.StatusCode, http.StatusInternalServerError)
 	}
 }
 
@@ -83,10 +102,12 @@ func TestGetJSONInvalidJSONReturnsError(t *testing.T) {
 	t.Cleanup(server.Close)
 
 	var response map[string]any
+
 	err := NewClient(5*time.Second).GetJSON(context.Background(), server.URL, &response)
 	if err == nil {
 		t.Fatalf("GetJSON() error = nil, want error")
 	}
+
 	if !strings.Contains(err.Error(), "decode") {
 		t.Fatalf("GetJSON() error = %q, want decode", err.Error())
 	}

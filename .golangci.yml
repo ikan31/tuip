@@ -11,28 +11,58 @@ linters:
   default: all
 
   disable:
-    - funlen         # no function length limits (your preference)
-    - cyclop         # no cyclomatic complexity limits
-    - gocognit       # no cognitive complexity limits
-    - gocyclo        # no cyclomatic complexity limits
-    - maintidx       # no maintainability index
+    - funlen            # no function length limits (your preference)
+    - cyclop            # no cyclomatic complexity limits
+    - gocognit          # no cognitive complexity limits
+    - gocyclo           # no cyclomatic complexity limits
+    - maintidx          # no maintainability index
+    - lll               # no long line reports
+    - wsl               # deprecated; wsl_v5 remains enabled by default: all
 
-linters-settings:
-  errorlint:
-    errorf: true        # enforce %w for error wrapping
-    asserts: true
-    comparison: true
+    # Decisions from lint review.
+    - depguard          # import policy was misconfigured/noisy for this project
+    - err113            # allow ordinary inline errors in app/CLI code
+    - exhaustruct       # too noisy for Cobra/http/test struct literals
+    - funcorder         # allow file organization by implementation flow
+    - gochecknoglobals  # allow package-level TUI styles/config values
+    - ireturn           # allow framework/domain interface returns
+    - nestif            # review deep nesting manually instead
+    - testpackage       # allow same-package tests for internals
+    - varnamelen        # allow idiomatic short Go names
 
-  govet:
-    enable:
-      - shadow          # catches accidental variable shadowing (helps with your err != nil style)
+  settings:
+    errorlint:
+      errorf: true        # enforce %w for error wrapping
+      asserts: true
+      comparison: true
 
-issues:
-  exclude-rules:
-    # if you ever pull in generated files
-    - path: ".*\\.gen\\.go"
-      linters:
-        - all
+    govet:
+      enable:
+        - shadow          # catches accidental variable shadowing (helps with your err != nil style)
+
+    revive:
+      # Keep revive, but avoid comment-only noise in internal packages.
+      rules:
+        - name: exported
+          disabled: true
+        - name: package-comments
+          disabled: true
+
+    tagliatelle:
+      case:
+        rules:
+          json: snake
+          yaml: snake
+        ignored-fields:
+          - StatusPage             # external PagerDuty API uses camelCase
+          - GlobalStatusHeadline   # external PagerDuty API uses camelCase
+
+  exclusions:
+    rules:
+      # if you ever pull in generated files
+      - path: ".*\\.gen\\.go"
+        linters:
+          - all
 
 formatters:
   # Enable specific formatter.
@@ -42,5 +72,4 @@ formatters:
     - gofmt
     - gofumpt
     - goimports
-    - golines
     - swaggo

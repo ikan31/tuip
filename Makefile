@@ -41,12 +41,12 @@ test: ## Run tests
 	go test ./...
 
 lint: ## Run golangci-lint
-	golangci-lint run
+	golangci-lint run --fix
 
 fmt: ## Format Go files
 	gofmt -w cmd internal
 
-check: fmt test lint ## Format, test, and lint
+check: fmt lint test ## Format, lint, and test final code
 
 clean: ## Remove build artifacts
 	rm -rf $(BIN_DIR) $(APP)
