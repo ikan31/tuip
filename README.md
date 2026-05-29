@@ -167,9 +167,16 @@ The TUI keeps a 60-second provider-level status cache. Switching from `all` to a
 
 Current built-in providers include:
 
-- **Communication:** Slack
+- **AI:** Anthropic, OpenAI
+- **Analytics & BI:** Hex, Metabase Cloud, Omni Analytics, Preset, Sigma Computing
+- **Cloud & hosting:** DigitalOcean, Fly.io, Netlify, Render, Vercel
+- **Communication:** Slack, Twilio
 - **Developer tools:** GitHub, GitHub Enterprise Cloud regional providers, Bitbucket
 - **Infrastructure:** Cloudflare
+- **Data integration:** Fivetran, Hevo, Matillion
+- **Data platforms:** Astronomer Astro, Atlan, ClickHouse Cloud, Confluent Cloud, dbt Cloud, Dremio Cloud, Snowflake
+- **Databases:** Aiven, Elastic Cloud, MongoDB Cloud, Pinecone, PlanetScale, Supabase, Zilliz Cloud
+- **Observability:** Bigeye, Datadog regional providers, New Relic, Sentry
 - **Project management:** Asana, Hive, Jira, monday.com, Trello
 - **Collaboration:** Confluence
 - **CRM & sales:** Accelo, Affinity, Capsule, HubSpot, Nutshell
@@ -179,9 +186,10 @@ Current built-in providers include:
 
 Provider source notes:
 
-- Most providers use Atlassian Statuspage JSON (`/api/v2/summary.json`).
+- Most providers use Atlassian Statuspage-compatible JSON (`/api/v2/summary.json`).
 - GitHub Enterprise Cloud Australia/Japan/US use PagerDuty status-page JSON (`/api/data`).
 - Slack uses Slack's public status API for top-level status and active incidents.
+- Providers that need non-Statuspage adapters, such as Databricks, Airbyte, Tableau, Collibra, and Informatica, are intentionally deferred.
 - Provider IDs are stable and intended for dashboards; use `tuip providers list` for the current full list and aliases.
 
 ## Dashboard config

@@ -1,6 +1,9 @@
 # tuip MVP Status
 
-The original MVP has been completed and surpassed. This file tracks what the MVP required, what exists now, and the likely next steps. Current source-of-truth docs are [`README.md`](../README.md) for usage and [`docs/architecture.md`](./architecture.md) for implementation details.
+> [!ATTENTION]
+> This file is a read-only historical record of the initial MVP planning and execution. Do not update it for post-MVP feature work, provider additions, roadmap changes, or current project status. Current source-of-truth docs are [`README.md`](../README.md) for usage and [`docs/architecture.md`](./architecture.md) for implementation details.
+
+The original MVP has been completed and surpassed. This file tracks what the MVP required, what existed when the MVP was closed, and likely next steps identified at that time.
 
 ## Current status
 

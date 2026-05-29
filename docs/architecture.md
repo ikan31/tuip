@@ -120,7 +120,7 @@ Registers all built-in providers into a registry. This is where new built-in pro
 Current source families:
 
 - Slack custom JSON API.
-- Atlassian Statuspage JSON (`/api/v2/summary.json`).
+- Atlassian Statuspage-compatible JSON (`/api/v2/summary.json`) for most SaaS, cloud, data, AI, and observability providers.
 - PagerDuty status-page JSON (`/api/data`) for some GitHub Enterprise Cloud regional pages.
 
 ### `internal/providers/statuspage`
@@ -134,7 +134,7 @@ It maps:
 - active incidents and scheduled maintenance to normalized incidents,
 - provider page timestamps to `UpdatedAt`.
 
-Most built-in providers use this adapter and only need metadata plus a `SummaryURL`.
+Most built-in providers use this adapter and only need metadata plus a `SummaryURL`; this includes the expanded data, cloud/hosting, AI, and observability provider wave.
 
 ### `internal/providers/pagerdutystatus`
 
