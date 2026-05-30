@@ -113,6 +113,82 @@ func TestSidebarScrollKeepsSelectedItemInViewport(t *testing.T) {
 	}
 }
 
+func TestFilteredStatusResultsUsesProviderSearchMetadata(t *testing.T) {
+	t.Parallel()
+
+	registry := providers.NewRegistry()
+
+	for _, metadata := range []providers.Metadata{
+		{ID: "snowflake", Name: "Snowflake", Description: "Cloud data warehouse", Category: "Data Platforms"},
+		{ID: "slack", Name: "Slack", Category: "Communication"},
+	} {
+		item := metadata
+
+		err := registry.Register(item, func() providers.Provider { return nil })
+		if err != nil {
+			t.Fatalf("Register() error = %v", err)
+		}
+	}
+
+	m := model{
+		registry:   registry,
+		statusFind: "warehouse",
+		response: status.Response{Results: []status.Snapshot{
+			{ProviderID: "slack", Name: "Slack", State: status.StateOperational},
+			{ProviderID: "snowflake", Name: "Snowflake", State: status.StateOperational},
+		}},
+	}
+
+	got := m.filteredStatusResults()
+	if len(got) != 1 || got[0].ProviderID != "snowflake" {
+		t.Fatalf("filteredStatusResults() = %#v, want only snowflake", got)
+	}
+}
+
+func TestFilteredStatusResultsMatchesSnapshotState(t *testing.T) {
+	t.Parallel()
+
+	m := model{
+		statusFind: "degraded",
+		response: status.Response{Results: []status.Snapshot{
+			{ProviderID: "slack", Name: "Slack", State: status.StateOperational},
+			{ProviderID: "fivetran", Name: "Fivetran", State: status.StateDegraded},
+		}},
+	}
+
+	got := m.filteredStatusResults()
+	if len(got) != 1 || got[0].ProviderID != "fivetran" {
+		t.Fatalf("filteredStatusResults() = %#v, want only fivetran", got)
+	}
+}
+
+func TestGridLinesShowsDashboardFilterBar(t *testing.T) {
+	t.Parallel()
+
+	m := model{
+		width:      100,
+		height:     20,
+		focus:      focusStatus,
+		mode:       inputStatusFilter,
+		statusFind: "slack",
+		response: status.Response{Results: []status.Snapshot{
+			{ProviderID: "github", Name: "GitHub", State: status.StateOperational},
+			{ProviderID: "slack", Name: "Slack", State: status.StateOperational},
+		}},
+	}
+
+	joined := strings.Join(m.gridLines(), "\n")
+	for _, want := range []string{"Filter: slack_", "(1/2)", "Slack"} {
+		if !strings.Contains(joined, want) {
+			t.Fatalf("gridLines() missing %q:\n%s", want, joined)
+		}
+	}
+
+	if strings.Contains(joined, "GitHub") {
+		t.Fatalf("gridLines() included filtered provider GitHub:\n%s", joined)
+	}
+}
+
 func TestStatusScrollCanHideErrorPrefixToShowFullCardRows(t *testing.T) {
 	t.Parallel()
 

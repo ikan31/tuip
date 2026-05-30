@@ -310,7 +310,7 @@ The TUI model tracks:
 - latest `status.Response`,
 - loading/error state,
 - focus area (`sidebar` or `status`),
-- input mode for provider search and dashboard create/rename/delete,
+- input mode for dashboard status filtering, provider search, and dashboard create/rename/delete,
 - persistent provider status cache used during dashboard refreshes,
 - sidebar/status/detail scroll state,
 - selected status card.
@@ -320,11 +320,12 @@ Navigation currently uses:
 - arrow keys or `h/j/k/l` for movement,
 - `enter` for selecting/opening,
 - `esc` for backing out of detail/status focus,
+- `/` or the visible `Filter dashboard` action for filtering the status cards shown in the dashboard pane,
 - `c`, `r`, `d`, `s` for create, rename, delete/details, set default,
 - `R` for force-refreshing the active dashboard and bypassing cache,
 - `ctrl+c` to quit.
 
-The status grid scrolls by full card rows so highlighted cards are not partially hidden.
+The status grid has a filter row above the cards and scrolls by full card rows so highlighted cards are not partially hidden.
 
 ## Adding a new provider
 
@@ -346,6 +347,8 @@ For a Statuspage provider, add a `statuspage.Options` entry in `internal/provide
 - `SourceURL`,
 - `APIURL`,
 - `SummaryURL`.
+
+For a PagerDuty-hosted provider, add a `pagerdutystatus.Options` entry in `internal/providers/builtin/pagerDutyStatusRegistrations` with the same metadata plus `DataURL`.
 
 Then run:
 

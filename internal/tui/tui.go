@@ -61,6 +61,7 @@ const (
 	footerHeight              = 2
 	borderWidth               = 2
 	errorLineCount            = 2
+	statusFilterLineCount     = 2
 	gridCardHorizontalPadding = 6
 	gridCardNamePadding       = 4
 )
@@ -107,6 +108,7 @@ type inputMode int
 const (
 	inputNone inputMode = iota
 	inputProviderSearch
+	inputStatusFilter
 	inputDashboardCreate
 	inputDashboardRename
 	inputDashboardDeleteConfirm
@@ -123,6 +125,7 @@ const (
 
 const (
 	actionRefreshDashboard       = "refresh-dashboard"
+	actionFilterDashboard        = "filter-dashboard"
 	actionNewDashboard           = "new-dashboard"
 	actionRenameDashboard        = "rename-dashboard"
 	actionDeleteDashboard        = "delete-dashboard"
@@ -178,6 +181,7 @@ type model struct {
 	focus            focusArea
 	mode             inputMode
 	providerFind     string
+	statusFind       string
 	createName       string
 	renameName       string
 	providerListMode providerListMode
@@ -301,6 +305,24 @@ func (m model) updateInput(msg tea.KeyMsg) (model, tea.Cmd, bool) {
 		m.sidebarScroll = m.scrollForSelectedSidebar()
 
 		return m, nil, true
+	case inputStatusFilter:
+		switch msg.String() {
+		case keyEsc:
+			m.mode = inputNone
+		case keyEnter:
+			m.mode = inputNone
+		case keyBackspace, keyCtrlH:
+			m.statusFind = trimLastRune(m.statusFind)
+		default:
+			if msg.Type == tea.KeyRunes {
+				m.statusFind += msg.String()
+			}
+		}
+
+		m.selectedStatus = m.clampedStatusIndex()
+		m.statusScroll = m.scrollForSelectedStatus()
+
+		return m, nil, true
 	case inputDashboardCreate:
 		switch msg.String() {
 		case keyEsc:
@@ -393,6 +415,12 @@ func (m model) updateKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case keyEsc:
 		if m.focus == focusStatus {
 			m.focus = focusSidebar
+		}
+
+		return m, nil
+	case "/":
+		if !m.inspect {
+			m = m.startStatusFilter()
 		}
 
 		return m, nil
@@ -502,7 +530,7 @@ func (m model) updateStatusKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) openSelectedStatusDetails() (tea.Model, tea.Cmd) {
-	if len(m.response.Results) == 0 {
+	if len(m.filteredStatusResults()) == 0 {
 		return m, nil
 	}
 
@@ -565,9 +593,11 @@ func (m model) helpText() string {
 
 	switch m.mode {
 	case inputNone:
-		return "↑/↓/←/→ or h/j/k/l move • enter select/details • R refresh • c/r/d/s actions • ctrl+c quit"
+		return "↑/↓/←/→ or h/j/k/l move • enter select/details • / filter • R refresh • c/r/d/s actions • ctrl+c quit"
 	case inputProviderSearch:
 		return "provider search • type query • enter/esc done"
+	case inputStatusFilter:
+		return "dashboard filter • type query • backspace clear • enter/esc done"
 	case inputDashboardCreate:
 		return "new dashboard: " + m.createName + "_  • enter create • esc cancel"
 	case inputDashboardRename:
@@ -576,7 +606,7 @@ func (m model) helpText() string {
 		return "delete dashboard " + m.activeDashboard() + "?  y confirm • n/esc cancel"
 	}
 
-	return "↑/↓/←/→ or h/j/k/l move • enter select/details • R refresh • c/r/d/s actions • ctrl+c quit"
+	return "↑/↓/←/→ or h/j/k/l move • enter select/details • / filter • R refresh • c/r/d/s actions • ctrl+c quit"
 }
 
 func (m model) renderSidebar(height int) string {
@@ -701,26 +731,33 @@ func (m model) bodyLines() []string {
 		return append(lines, m.inspectLines()...)
 	}
 
-	return m.gridLines()
+	return append(lines, m.gridLines()...)
 }
 
 func (m model) gridLines() []string {
-	if len(m.response.Results) == 0 {
-		return nil
+	results := m.filteredStatusResults()
+	rows := m.statusFilterLines(len(results))
+
+	if len(results) == 0 {
+		query := strings.TrimSpace(m.statusFind)
+		if query == "" {
+			return rows
+		}
+
+		return append(rows, fmt.Sprintf("No providers match %q.", query))
 	}
 
 	columns := m.gridColumns()
-	rows := make([]string, 0)
 
-	for start := 0; start < len(m.response.Results); start += columns {
-		end := min(len(m.response.Results), start+columns)
+	for start := 0; start < len(results); start += columns {
+		end := min(len(results), start+columns)
 		cards := make([]string, 0, columns)
 
 		cardHeight := m.gridCardHeight()
 
 		for idx := start; idx < end; idx++ {
 			selected := idx == m.selectedStatus && m.focus == focusStatus
-			cards = append(cards, renderGridCard(m.response.Results[idx], m.gridCardWidth(), cardHeight, selected))
+			cards = append(cards, renderGridCard(results[idx], m.gridCardWidth(), cardHeight, selected))
 		}
 
 		for len(cards) < columns {
@@ -734,10 +771,91 @@ func (m model) gridLines() []string {
 	return rows
 }
 
+func (m model) statusFilterLines(matchCount int) []string {
+	query := strings.TrimSpace(m.statusFind)
+
+	value := "all providers"
+	if query != "" {
+		value = query
+	}
+
+	if m.mode == inputStatusFilter {
+		value = m.statusFind + "_"
+	}
+
+	line := "Filter: " + value
+	if len(m.response.Results) > 0 {
+		line += fmt.Sprintf("  (%d/%d)", matchCount, len(m.response.Results))
+	}
+
+	hint := "select Filter dashboard or press / to edit"
+	if m.mode == inputStatusFilter {
+		hint = "enter/esc done • backspace clears"
+	}
+
+	style := subtleStyle
+	if m.mode == inputStatusFilter {
+		style = selectedStyle
+	}
+
+	return []string{style.Render(line) + "  " + subtleStyle.Render(hint), ""}
+}
+
+func (m model) filteredStatusResults() []status.Snapshot {
+	results := m.response.Results
+
+	query := strings.TrimSpace(m.statusFind)
+	if query == "" || len(results) == 0 {
+		return results
+	}
+
+	matchedIDs := map[string]bool{}
+
+	if m.registry != nil {
+		for _, metadata := range m.registry.Search(query) {
+			matchedIDs[metadata.ID] = true
+		}
+	}
+
+	filtered := make([]status.Snapshot, 0, len(results))
+	for _, snapshot := range results {
+		if matchedIDs[snapshot.ProviderID] || statusSnapshotMatches(snapshot, query) {
+			filtered = append(filtered, snapshot)
+		}
+	}
+
+	return filtered
+}
+
+func statusSnapshotMatches(snapshot status.Snapshot, query string) bool {
+	query = strings.ToLower(strings.TrimSpace(query))
+	if query == "" {
+		return true
+	}
+
+	fields := []string{
+		snapshot.ProviderID,
+		snapshot.Name,
+		string(snapshot.State),
+		snapshot.State.Display(),
+		snapshot.Summary,
+	}
+
+	for _, field := range fields {
+		if strings.Contains(strings.ToLower(field), query) {
+			return true
+		}
+	}
+
+	return false
+}
+
 func (m model) footerLine(scroll, maxScroll int) string {
 	parts := []string{fmt.Sprintf("scroll %d/%d", scroll, maxScroll)}
-	if len(m.response.Results) > 0 && !m.inspect {
-		parts = append(parts, fmt.Sprintf("selected %d/%d", m.selectedStatus+1, len(m.response.Results)))
+
+	filtered := m.filteredStatusResults()
+	if len(filtered) > 0 && !m.inspect {
+		parts = append(parts, fmt.Sprintf("selected %d/%d", m.selectedStatus+1, len(filtered)))
 	}
 
 	if !m.lastRefreshed.IsZero() {
@@ -792,7 +910,7 @@ func (m model) sidebarRows() []sidebarRow {
 
 func (m model) inputPromptRows() []sidebarRow {
 	switch m.mode {
-	case inputNone, inputProviderSearch:
+	case inputNone, inputProviderSearch, inputStatusFilter:
 		return nil
 	case inputDashboardCreate:
 		return []sidebarRow{
@@ -846,10 +964,11 @@ func (m model) scrollForSelectedSidebar() int {
 }
 
 func (m model) sidebarItems() []sidebarItem {
-	items := make([]sidebarItem, 0, 7+len(m.dashboardNames)+1+len(m.filteredProviderMetadata()))
+	items := make([]sidebarItem, 0, 8+len(m.dashboardNames)+1+len(m.filteredProviderMetadata()))
 
 	items = append(items,
 		sidebarItem{kind: sidebarAction, id: actionRefreshDashboard},
+		sidebarItem{kind: sidebarAction, id: actionFilterDashboard},
 		sidebarItem{kind: sidebarAction, id: actionNewDashboard},
 		sidebarItem{kind: sidebarAction, id: actionRenameDashboard},
 		sidebarItem{kind: sidebarAction, id: actionDeleteDashboard},
@@ -928,6 +1047,16 @@ func (m model) actionLabel(action string) string {
 	switch action {
 	case actionRefreshDashboard:
 		return "(R)efresh dashboard"
+	case actionFilterDashboard:
+		if m.mode == inputStatusFilter {
+			return "Filter: " + m.statusFind + "_"
+		}
+
+		if strings.TrimSpace(m.statusFind) != "" {
+			return "Filter: " + m.statusFind
+		}
+
+		return "Filter dashboard"
 	case actionNewDashboard:
 		return "(c)reate dashboard"
 	case actionRenameDashboard:
@@ -1038,6 +1167,10 @@ func (m model) activateSidebarAction(action string) (tea.Model, tea.Cmd) {
 		m.err = nil
 
 		return m, m.forceRefresh()
+	case actionFilterDashboard:
+		m = m.startStatusFilter()
+
+		return m, nil
 	case actionNewDashboard:
 		m.mode = inputDashboardCreate
 		m.createName = ""
@@ -1090,6 +1223,16 @@ func (m model) activateSidebarAction(action string) (tea.Model, tea.Cmd) {
 	default:
 		return m, nil
 	}
+}
+
+func (m model) startStatusFilter() model {
+	m.mode = inputStatusFilter
+	m.focus = focusStatus
+	m.inspect = false
+	m.selectedStatus = m.clampedStatusIndex()
+	m.statusScroll = m.scrollForSelectedStatus()
+
+	return m
 }
 
 func (m model) dashboardActionTarget() string {
@@ -1289,11 +1432,12 @@ func resolveDashboardProviderIDs(configPath string, registry *providers.Registry
 }
 
 func (m model) inspectLines() []string {
-	if len(m.response.Results) == 0 {
+	results := m.filteredStatusResults()
+	if len(results) == 0 {
 		return []string{"No provider selected."}
 	}
 
-	snapshot := m.response.Results[m.clampedStatusIndex()]
+	snapshot := results[m.clampedStatusIndex()]
 
 	lines := []string{
 		titleStyle.Render(snapshot.Name),
@@ -1664,7 +1808,7 @@ func formatGroupCounts(groups map[string]int, limit int) []string {
 }
 
 func (m model) scrollForSelectedStatus() int {
-	if len(m.response.Results) == 0 {
+	if len(m.filteredStatusResults()) == 0 {
 		return 0
 	}
 
@@ -1695,7 +1839,7 @@ func (m model) scrollForSelectedStatus() int {
 }
 
 func (m model) selectedStatusLineRange() (int, int) {
-	if len(m.response.Results) == 0 {
+	if len(m.filteredStatusResults()) == 0 {
 		return 0, 0
 	}
 
@@ -1745,11 +1889,12 @@ func (m model) mainVisibleHeight(height, scroll int) int {
 }
 
 func (m model) gridStartLine() int {
+	lineCount := statusFilterLineCount
 	if m.err != nil {
-		return errorLineCount
+		lineCount += errorLineCount
 	}
 
-	return 0
+	return lineCount
 }
 
 func (m model) gridCardOuterHeight() int {
@@ -1761,11 +1906,12 @@ func (m model) gridRowStride() int {
 }
 
 func (m model) gridRowCount() int {
-	if len(m.response.Results) == 0 {
+	resultCount := len(m.filteredStatusResults())
+	if resultCount == 0 {
 		return 0
 	}
 
-	return (len(m.response.Results) + m.gridColumns() - 1) / m.gridColumns()
+	return (resultCount + m.gridColumns() - 1) / m.gridColumns()
 }
 
 func (m model) visibleGridRowsAtScroll(height, scroll int) int {
@@ -1838,7 +1984,7 @@ func (m model) gridCardHeight() int {
 
 	maxNameLines := 1
 
-	for _, snapshot := range m.response.Results {
+	for _, snapshot := range m.filteredStatusResults() {
 		maxNameLines = max(maxNameLines, len(wrapText(snapshot.Name, nameWidth)))
 	}
 
@@ -1907,7 +2053,7 @@ func (m model) clampedSidebarScroll() int {
 }
 
 func (m model) clampedStatusIndex() int {
-	return clamp(m.selectedStatus, 0, max(0, len(m.response.Results)-1))
+	return clamp(m.selectedStatus, 0, max(0, len(m.filteredStatusResults())-1))
 }
 
 func renderGridCard(snapshot status.Snapshot, width, height int, selected bool) string {

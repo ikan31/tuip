@@ -16,6 +16,7 @@ func TestNewRegistryIncludesWave1StatuspageProviders(t *testing.T) {
 	}
 
 	wantCanonicalIDs := []string{
+		"cloudflare",
 		"sigma",
 		"matillion",
 		"snowflake",
@@ -82,6 +83,50 @@ func TestNewRegistryIncludesWave1StatuspageProviders(t *testing.T) {
 
 			if metadata.Category == "" {
 				t.Fatalf("provider %q Category is empty", id)
+			}
+		})
+	}
+}
+
+func TestNewRegistryIncludesGitHubProviders(t *testing.T) {
+	t.Parallel()
+
+	registry, err := NewRegistry(fetch.NewClient(time.Second))
+	if err != nil {
+		t.Fatalf("NewRegistry() error = %v", err)
+	}
+
+	tests := map[string][]string{
+		"github":                     nil,
+		"github-enterprise-cloud-au": {"github-au", "ghec-au"},
+		"github-enterprise-cloud-eu": {"github-eu", "ghec-eu"},
+		"github-enterprise-cloud-jp": {"github-jp", "ghec-jp"},
+		"github-enterprise-cloud-us": {"github-us", "ghec-us"},
+	}
+
+	for id, aliases := range tests {
+		t.Run(id, func(t *testing.T) {
+			t.Parallel()
+
+			provider, ok := registry.Get(id)
+			if !ok {
+				t.Fatalf("registry.Get(%q) ok = false, want true", id)
+			}
+
+			metadata := provider.Metadata()
+			if metadata.Category != "Developer Tools" {
+				t.Fatalf("provider %q Category = %q, want Developer Tools", id, metadata.Category)
+			}
+
+			for _, alias := range aliases {
+				got, ok := registry.CanonicalID(alias)
+				if !ok {
+					t.Fatalf("CanonicalID(%q) ok = false, want true", alias)
+				}
+
+				if got != id {
+					t.Fatalf("CanonicalID(%q) = %q, want %q", alias, got, id)
+				}
 			}
 		})
 	}

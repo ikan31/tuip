@@ -5,13 +5,12 @@ import (
 
 	"github.com/tuipcli/tuip/internal/fetch"
 	"github.com/tuipcli/tuip/internal/providers"
-	"github.com/tuipcli/tuip/internal/providers/cloudflare"
-	"github.com/tuipcli/tuip/internal/providers/github"
+	"github.com/tuipcli/tuip/internal/providers/pagerdutystatus"
 	"github.com/tuipcli/tuip/internal/providers/slack"
 	"github.com/tuipcli/tuip/internal/providers/statuspage"
 )
 
-const coreProviderCount = 7
+const customProviderCount = 1
 
 type registration struct {
 	metadata providers.Metadata
@@ -23,38 +22,14 @@ func NewRegistry(client *fetch.Client) (*providers.Registry, error) {
 	registry := providers.NewRegistry()
 
 	statuspageRegs := statuspageRegistrations(client)
-	registrations := make([]registration, 0, coreProviderCount+len(statuspageRegs))
-	registrations = append(registrations,
-		registration{
-			metadata: slack.New(client).Metadata(),
-			factory:  func() providers.Provider { return slack.New(client) },
-		},
-		registration{
-			metadata: github.New(client).Metadata(),
-			factory:  func() providers.Provider { return github.New(client) },
-		},
-		registration{
-			metadata: github.NewEnterpriseCloudAU(client).Metadata(),
-			factory:  func() providers.Provider { return github.NewEnterpriseCloudAU(client) },
-		},
-		registration{
-			metadata: github.NewEnterpriseCloudEU(client).Metadata(),
-			factory:  func() providers.Provider { return github.NewEnterpriseCloudEU(client) },
-		},
-		registration{
-			metadata: github.NewEnterpriseCloudJP(client).Metadata(),
-			factory:  func() providers.Provider { return github.NewEnterpriseCloudJP(client) },
-		},
-		registration{
-			metadata: github.NewEnterpriseCloudUS(client).Metadata(),
-			factory:  func() providers.Provider { return github.NewEnterpriseCloudUS(client) },
-		},
-		registration{
-			metadata: cloudflare.New(client).Metadata(),
-			factory:  func() providers.Provider { return cloudflare.New(client) },
-		},
-	)
+	pagerDutyStatusRegs := pagerDutyStatusRegistrations(client)
+	registrations := make([]registration, 0, customProviderCount+len(pagerDutyStatusRegs)+len(statuspageRegs))
+	registrations = append(registrations, registration{
+		metadata: slack.New(client).Metadata(),
+		factory:  func() providers.Provider { return slack.New(client) },
+	})
 
+	registrations = append(registrations, pagerDutyStatusRegs...)
 	registrations = append(registrations, statuspageRegs...)
 
 	for _, registration := range registrations {
@@ -67,8 +42,85 @@ func NewRegistry(client *fetch.Client) (*providers.Registry, error) {
 	return registry, nil
 }
 
+func pagerDutyStatusRegistrations(client *fetch.Client) []registration {
+	options := []pagerdutystatus.Options{
+		{
+			ID:          "github-enterprise-cloud-au",
+			Aliases:     []string{"github-au", "ghec-au"},
+			Name:        "GitHub Enterprise Cloud - Australia",
+			Description: "GitHub Enterprise Cloud Australia regional status",
+			Category:    "Developer Tools",
+			SourceURL:   "https://au.githubstatus.com/",
+			APIURL:      "https://au.githubstatus.com/api/data",
+			DataURL:     "https://au.githubstatus.com/api/data",
+		},
+		{
+			ID:          "github-enterprise-cloud-jp",
+			Aliases:     []string{"github-jp", "ghec-jp"},
+			Name:        "GitHub Enterprise Cloud - Japan",
+			Description: "GitHub Enterprise Cloud Japan regional status",
+			Category:    "Developer Tools",
+			SourceURL:   "https://jp.githubstatus.com/",
+			APIURL:      "https://jp.githubstatus.com/api/data",
+			DataURL:     "https://jp.githubstatus.com/api/data",
+		},
+		{
+			ID:          "github-enterprise-cloud-us",
+			Aliases:     []string{"github-us", "ghec-us"},
+			Name:        "GitHub Enterprise Cloud - US",
+			Description: "GitHub Enterprise Cloud US regional status",
+			Category:    "Developer Tools",
+			SourceURL:   "https://us.githubstatus.com/",
+			APIURL:      "https://us.githubstatus.com/api/data",
+			DataURL:     "https://us.githubstatus.com/api/data",
+		},
+	}
+
+	registrations := make([]registration, 0, len(options))
+	for _, option := range options {
+		current := option
+		provider := pagerdutystatus.NewProvider(client, current)
+		registrations = append(registrations, registration{
+			metadata: provider.Metadata(),
+			factory: func() providers.Provider {
+				return pagerdutystatus.NewProvider(client, current)
+			},
+		})
+	}
+
+	return registrations
+}
+
 func statuspageRegistrations(client *fetch.Client) []registration {
 	options := []statuspage.Options{
+		{
+			ID:          "cloudflare",
+			Name:        "Cloudflare",
+			Description: "Cloudflare service status",
+			Category:    "Infrastructure",
+			SourceURL:   "https://www.cloudflarestatus.com/",
+			APIURL:      "https://www.cloudflarestatus.com/api",
+			SummaryURL:  "https://www.cloudflarestatus.com/api/v2/summary.json",
+		},
+		{
+			ID:          "github",
+			Name:        "GitHub",
+			Description: "GitHub service status",
+			Category:    "Developer Tools",
+			SourceURL:   "https://www.githubstatus.com/#",
+			APIURL:      "https://www.githubstatus.com/api/v2/summary.json",
+			SummaryURL:  "https://www.githubstatus.com/api/v2/summary.json",
+		},
+		{
+			ID:          "github-enterprise-cloud-eu",
+			Aliases:     []string{"github-eu", "ghec-eu"},
+			Name:        "GitHub Enterprise Cloud - EU",
+			Description: "GitHub Enterprise Cloud EU regional status",
+			Category:    "Developer Tools",
+			SourceURL:   "https://eu.githubstatus.com/",
+			APIURL:      "https://eu.githubstatus.com/api/v2/summary.json",
+			SummaryURL:  "https://eu.githubstatus.com/api/v2/summary.json",
+		},
 		{
 			ID:          "accelo",
 			Name:        "Accelo",

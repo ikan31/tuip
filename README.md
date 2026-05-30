@@ -147,7 +147,7 @@ The TUI loads the configured default dashboard. If no default dashboard exists, 
 
 Management pane:
 
-- Select visible actions like `(c)reate dashboard`, `(r)ename dashboard`, `(d)elete dashboard`, `(s)et dashboard default`, and provider grouping with `enter`.
+- Select visible actions like `Filter dashboard`, `(c)reate dashboard`, `(r)ename dashboard`, `(d)elete dashboard`, `(s)et dashboard default`, and provider grouping with `enter`.
 - Select a dashboard with `enter`.
 - Select a provider with `enter` to add/remove it from the active dashboard; configured providers are marked with `*`.
 - Select `Search providers` under the providers section to fuzzy-search providers.
@@ -156,6 +156,7 @@ Navigation:
 
 - Arrow keys or `h`/`j`/`k`/`l` move through panes and status cards.
 - `enter` selects management items or opens selected status details.
+- `/` focuses the dashboard filter shown at the top of the status pane; type to filter visible status cards and press `enter` or `esc` when done.
 - `esc` backs out of status/details focus without quitting the TUI.
 - `c`, `r`, `d`, and `s` trigger create, rename, delete/details, and set-default actions.
 - `R` force-refreshes the active dashboard and bypasses the cache.
