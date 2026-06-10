@@ -4,6 +4,20 @@
 
 `tuip` is a terminal CLI and TUI for checking public SaaS status pages. It normalizes vendor-specific status APIs into one model so you can quickly inspect provider health from your shell or an interactive dashboard.
 
+## Screenshots
+
+<p align="center">
+  <img src="docs/assets/tuip-dashboard.png" alt="tuip dashboard overview" width="900">
+</p>
+
+<p align="center"><em>Dashboard overview</em></p>
+
+<p align="center">
+  <img src="docs/assets/tuip-details.png" alt="tuip provider details view" width="900">
+</p>
+
+<p align="center"><em>Provider details</em></p>
+
 ## Features
 
 - **CLI and TUI workflows** for ad-hoc checks, reusable dashboards, and interactive status browsing.
