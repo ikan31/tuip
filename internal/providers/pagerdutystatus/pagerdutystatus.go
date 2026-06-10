@@ -84,7 +84,7 @@ func MapHeadline(headline string) status.State {
 	switch {
 	case normalized == "":
 		return status.StateUnknown
-	case strings.Contains(normalized, "all systems operational"):
+	case strings.Contains(normalized, "all systems operational") || strings.Contains(normalized, "running smoothly"):
 		return status.StateOperational
 	case strings.Contains(normalized, "maintenance"):
 		return status.StateMaintenance

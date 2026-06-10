@@ -270,3 +270,5 @@ make build
 ```
 
 Architecture and contributor-oriented implementation notes live in [`docs/architecture.md`](./docs/architecture.md). MVP status and near-term roadmap notes live in [`docs/mvp.md`](./docs/mvp.md).
+
+

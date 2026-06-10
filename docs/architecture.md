@@ -121,7 +121,7 @@ Current source families:
 
 - Slack custom JSON API.
 - Atlassian Statuspage-compatible JSON (`/api/v2/summary.json`) for most SaaS, cloud, data, AI, and observability providers.
-- PagerDuty status-page JSON (`/api/data`) for some GitHub Enterprise Cloud regional pages.
+- PagerDuty status-page JSON (`/api/data`) for PagerDuty-hosted pages such as PagerDuty itself and some GitHub Enterprise Cloud regional pages.
 
 ### `internal/providers/statuspage`
 
@@ -138,7 +138,7 @@ Most built-in providers use this adapter and only need metadata plus a `SummaryU
 
 ### `internal/providers/pagerdutystatus`
 
-Reusable adapter for PagerDuty-hosted public status pages that expose `/api/data`. This currently supports GitHub Enterprise Cloud regional providers that do not use Statuspage JSON.
+Reusable adapter for PagerDuty-hosted public status pages that expose `/api/data`. This supports PagerDuty itself and GitHub Enterprise Cloud regional providers that do not use Statuspage JSON.
 
 ### `internal/providers/slack`
 

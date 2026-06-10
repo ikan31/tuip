@@ -132,6 +132,154 @@ func TestNewRegistryIncludesGitHubProviders(t *testing.T) {
 	}
 }
 
+func TestNewRegistryIncludesDeveloperSaaSProviders(t *testing.T) {
+	t.Parallel()
+
+	registry, err := NewRegistry(fetch.NewClient(time.Second))
+	if err != nil {
+		t.Fatalf("NewRegistry() error = %v", err)
+	}
+
+	ids := []string{
+		"1password",
+		"ably",
+		"airtable",
+		"akeyless",
+		"amplitude",
+		"apigee",
+		"axiom",
+		"baseten",
+		"bitrise",
+		"braze",
+		"bugsnag",
+		"census",
+		"chargebee",
+		"circleci",
+		"clerk",
+		"cloudsmith",
+		"coda",
+		"codefresh",
+		"cohere",
+		"convex",
+		"coralogix",
+		"courier",
+		"crates-io",
+		"depot",
+		"discord",
+		"doppler",
+		"drata",
+		"expo",
+		"figma",
+		"fullstory",
+		"gitguardian",
+		"gocardless",
+		"grafana-cloud",
+		"harness",
+		"heap",
+		"honeycomb",
+		"incident-io",
+		"infisical",
+		"influxdb-cloud",
+		"inngest",
+		"jfrog",
+		"kong",
+		"launchdarkly",
+		"logzio",
+		"mailgun",
+		"maven-central",
+		"mend",
+		"mintlify",
+		"miro",
+		"mixpanel",
+		"npm",
+		"nx-cloud",
+		"onesignal",
+		"opsgenie",
+		"pagerduty",
+		"pendo",
+		"postman",
+		"pubnub",
+		"pusher",
+		"pypi",
+		"quay",
+		"readme",
+		"replicate",
+		"revenuecat",
+		"rollbar",
+		"rootly",
+		"rubygems",
+		"rudderstack",
+		"segment",
+		"semaphore",
+		"semgrep",
+		"sendgrid",
+		"shortcut",
+		"snyk",
+		"sparkpost",
+		"splunk-on-call",
+		"square",
+		"statuscake",
+		"stoplight",
+		"stream",
+		"svix",
+		"tailscale",
+		"teleport-cloud",
+		"temporal-cloud",
+		"travis-ci",
+		"tyk",
+		"upstash",
+		"vanta",
+		"veracode",
+		"wiz",
+		"workos",
+		"zoom",
+		"zuora",
+		"zuplo",
+	}
+
+	for _, id := range ids {
+		t.Run(id, func(t *testing.T) {
+			t.Parallel()
+
+			provider, ok := registry.Get(id)
+			if !ok {
+				t.Fatalf("registry.Get(%q) ok = false, want true", id)
+			}
+
+			metadata := provider.Metadata()
+			if metadata.SourceURL == "" || metadata.APIURL == "" || metadata.Category == "" {
+				t.Fatalf("provider %q has incomplete metadata: %#v", id, metadata)
+			}
+		})
+	}
+
+	aliases := map[string]string{
+		"onepassword":         "1password",
+		"circle-ci":           "circleci",
+		"eas":                 "expo",
+		"grafana":             "grafana-cloud",
+		"maven":               "maven-central",
+		"turborepo":           "vercel",
+		"vercel-remote-cache": "vercel",
+		"victorops":           "splunk-on-call",
+	}
+
+	for alias, want := range aliases {
+		t.Run(alias, func(t *testing.T) {
+			t.Parallel()
+
+			got, ok := registry.CanonicalID(alias)
+			if !ok {
+				t.Fatalf("CanonicalID(%q) ok = false, want true", alias)
+			}
+
+			if got != want {
+				t.Fatalf("CanonicalID(%q) = %q, want %q", alias, got, want)
+			}
+		})
+	}
+}
+
 func TestNewRegistryIncludesWave1Aliases(t *testing.T) {
 	t.Parallel()
 
