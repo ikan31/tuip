@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/tuipcli/tuip/internal/status"
+	"github.com/ikan31/tuip/internal/status"
 )
 
 // WriteJSON renders the normalized response for scripts/tests.

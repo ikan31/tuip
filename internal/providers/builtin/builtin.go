@@ -3,11 +3,11 @@ package builtin
 import (
 	"fmt"
 
-	"github.com/tuipcli/tuip/internal/fetch"
-	"github.com/tuipcli/tuip/internal/providers"
-	"github.com/tuipcli/tuip/internal/providers/pagerdutystatus"
-	"github.com/tuipcli/tuip/internal/providers/slack"
-	"github.com/tuipcli/tuip/internal/providers/statuspage"
+	"github.com/ikan31/tuip/internal/fetch"
+	"github.com/ikan31/tuip/internal/providers"
+	"github.com/ikan31/tuip/internal/providers/pagerdutystatus"
+	"github.com/ikan31/tuip/internal/providers/slack"
+	"github.com/ikan31/tuip/internal/providers/statuspage"
 )
 
 const customProviderCount = 1

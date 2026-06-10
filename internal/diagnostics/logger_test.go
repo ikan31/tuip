@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tuipcli/tuip/internal/config"
+	"github.com/ikan31/tuip/internal/config"
 )
 
 const testVersion = "test-version"

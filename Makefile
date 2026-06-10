@@ -1,4 +1,4 @@
-.PHONY: help build run status providers dashboard-create dashboard-add dashboard-list test lint fmt check clean install
+.PHONY: help build run status providers dashboard-create dashboard-add dashboard-list test lint fmt check release-snapshot clean install
 
 APP := tuip
 MAIN := ./cmd/tuip
@@ -48,5 +48,8 @@ fmt: ## Format Go files
 
 check: fmt lint test ## Format, lint, and test final code
 
+release-snapshot: ## Build a local GoReleaser snapshot into ./dist
+	goreleaser release --snapshot --clean
+
 clean: ## Remove build artifacts
-	rm -rf $(BIN_DIR) $(APP)
+	rm -rf $(BIN_DIR) $(APP) dist

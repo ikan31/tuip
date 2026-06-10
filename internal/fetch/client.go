@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	DefaultUserAgent = "tuip/0.1 (+https://github.com/tuipcli/tuip)"
+	DefaultUserAgent = "tuip/0.1 (+https://github.com/ikan31/tuip)"
 	defaultTimeout   = 5 * time.Second
 )
 

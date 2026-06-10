@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/tuipcli/tuip/internal/status"
+	"github.com/ikan31/tuip/internal/status"
 )
 
 const (

@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tuipcli/tuip/internal/fetch"
-	"github.com/tuipcli/tuip/internal/providers"
-	"github.com/tuipcli/tuip/internal/status"
+	"github.com/ikan31/tuip/internal/fetch"
+	"github.com/ikan31/tuip/internal/providers"
+	"github.com/ikan31/tuip/internal/status"
 )
 
 const (

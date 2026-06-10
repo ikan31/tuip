@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tuipcli/tuip/internal/config"
-	"github.com/tuipcli/tuip/internal/providers"
+	"github.com/ikan31/tuip/internal/config"
+	"github.com/ikan31/tuip/internal/providers"
 )
 
 func TestDashboardCreateWithProviders(t *testing.T) {

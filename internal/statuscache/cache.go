@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/tuipcli/tuip/internal/status"
+	"github.com/ikan31/tuip/internal/status"
 )
 
 const (

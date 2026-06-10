@@ -6,27 +6,29 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"runtime/debug"
 	"strings"
 	"text/tabwriter"
 	"time"
 
+	"github.com/ikan31/tuip/internal/app"
+	"github.com/ikan31/tuip/internal/config"
+	"github.com/ikan31/tuip/internal/diagnostics"
+	"github.com/ikan31/tuip/internal/fetch"
+	"github.com/ikan31/tuip/internal/output"
+	"github.com/ikan31/tuip/internal/providers"
+	"github.com/ikan31/tuip/internal/providers/builtin"
+	"github.com/ikan31/tuip/internal/tui"
 	"github.com/spf13/cobra"
-	"github.com/tuipcli/tuip/internal/app"
-	"github.com/tuipcli/tuip/internal/config"
-	"github.com/tuipcli/tuip/internal/diagnostics"
-	"github.com/tuipcli/tuip/internal/fetch"
-	"github.com/tuipcli/tuip/internal/output"
-	"github.com/tuipcli/tuip/internal/providers"
-	"github.com/tuipcli/tuip/internal/providers/builtin"
-	"github.com/tuipcli/tuip/internal/tui"
 )
 
 const (
-	version           = "0.1.0"
 	providersArgCount = 2
 	registryTimeout   = 5 * time.Second
 	tablePadding      = 2
 )
+
+var version = "dev"
 
 // NewRootCommand builds the tuip CLI command tree.
 func NewRootCommand() *cobra.Command {
@@ -42,7 +44,7 @@ func NewRootCommand() *cobra.Command {
 
 Use explicit providers for quick checks, configure YAML dashboards for reusable groups of services, or run the interactive TUI with no subcommand.`),
 		Example:       strings.TrimSpace("tuip status slack github cloudflare\ntuip status --json github jira asana\ntuip providers search github eu\ntuip dashboard create work slack github jira asana\nTUIP_LOG_LEVEL=debug tuip"),
-		Version:       version,
+		Version:       currentVersion(),
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		Args:          cobra.NoArgs,
@@ -66,12 +68,24 @@ Use explicit providers for quick checks, configure YAML dashboards for reusable 
 	return root
 }
 
+func currentVersion() string {
+	if version != "" && version != "dev" {
+		return strings.TrimPrefix(version, "v")
+	}
+
+	info, ok := debug.ReadBuildInfo()
+	if ok && info.Main.Version != "" && info.Main.Version != "(devel)" {
+		return strings.TrimPrefix(info.Main.Version, "v")
+	}
+
+	return version
+}
+
 func newStatusCommand(configPath *string, logLevel *string) *cobra.Command {
 	var (
-		jsonOutput     bool
-		details        bool
-		dashboardName  string
-		failOnDegraded bool
+		jsonOutput    bool
+		details       bool
+		dashboardName string
 	)
 
 	cmd := &cobra.Command{
@@ -83,7 +97,6 @@ Pass provider IDs directly for an ad-hoc check. With no provider IDs, tuip check
 		Example: strings.TrimSpace(`tuip status slack github cloudflare
 tuip status --details cloudflare
 tuip status --json github jira asana
-tuip status --fail-on-degraded github cloudflare
 tuip status
 tuip status --dashboard work`),
 		Args:              cobra.ArbitraryArgs,
@@ -122,10 +135,6 @@ tuip status --dashboard work`),
 				return fmt.Errorf("check providers: %w", checkErr)
 			}
 
-			if failOnDegraded && app.HasUnhealthyProvider(response) {
-				return errors.New("one or more providers are not operational")
-			}
-
 			return nil
 		},
 	}
@@ -133,7 +142,6 @@ tuip status --dashboard work`),
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "write standardized JSON output")
 	cmd.Flags().BoolVar(&details, "details", false, "include active incidents, scheduled maintenance, and components")
 	cmd.Flags().StringVar(&dashboardName, "dashboard", "", "dashboard name from config")
-	cmd.Flags().BoolVar(&failOnDegraded, "fail-on-degraded", false, "exit non-zero when any checked provider is not operational")
 
 	return cmd
 }
@@ -553,7 +561,7 @@ func newRegistry() (*providers.Registry, error) {
 }
 
 func newLogger(configPath, logLevel string) (*slog.Logger, func(), error) {
-	logger, closer, _, err := diagnostics.NewLogger(configPath, logLevel, version)
+	logger, closer, _, err := diagnostics.NewLogger(configPath, logLevel, currentVersion())
 	if err != nil {
 		return nil, nil, fmt.Errorf("initialize diagnostics logger: %w", err)
 	}

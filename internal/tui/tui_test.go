@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tuipcli/tuip/internal/providers"
-	"github.com/tuipcli/tuip/internal/status"
+	"github.com/ikan31/tuip/internal/providers"
+	"github.com/ikan31/tuip/internal/status"
 )
 
 func TestRenderGridCardWrapsProviderName(t *testing.T) {

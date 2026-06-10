@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/tuipcli/tuip/internal/status"
+	"github.com/ikan31/tuip/internal/status"
 )
 
 func TestRegistryAliasesResolveToCanonicalProvider(t *testing.T) {

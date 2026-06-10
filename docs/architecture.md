@@ -1,16 +1,16 @@
 # tuip Architecture
 
-This document explains how `tuip` is structured and how the CLI, TUI, providers, config, and output layers fit together. It is intended for future contributors and for project maintenance. User-facing docs live in the root [`README.md`](../README.md).
+This document explains how `tuip` is organized for maintainers and provider contributors. User-facing usage docs live in the root [`README.md`](../README.md). Provider contribution guidance starts in [`CONTRIBUTING.md`](../CONTRIBUTING.md) and [`internal/providers/README.md`](../internal/providers/README.md).
+
+`tuip` is published as a CLI/TUI tool. Packages under `internal/` are implementation details, not a public Go library API.
 
 ## Design goals
 
-`tuip` is built around a CLI-first core:
-
-1. The CLI must be useful on its own for ad-hoc status checks, automation, provider discovery, and dashboard config management.
-2. The TUI should not reimplement business logic. It should call the same provider registry, status orchestration, config, and normalized status model as the CLI.
-3. Provider integrations should prefer public structured APIs over scraping.
-4. Every provider should normalize into the same status model so output and UI code stay provider-agnostic.
-5. Dashboard config should be shareable YAML that references stable provider IDs.
+- Keep the CLI useful on its own for status checks, JSON output, provider discovery, and dashboard config management.
+- Let the TUI reuse the same status engine instead of duplicating provider/config logic.
+- Prefer public structured status APIs over scraping.
+- Normalize every provider into one provider-independent status model.
+- Keep dashboard config small, shareable, and based on stable provider IDs.
 
 ## High-level flow
 
@@ -20,7 +20,7 @@ cmd/tuip/main.go
         v
 internal/cli/root.go  -------------------------------+
         |                                             |
-        | status/dashboard/providers commands          | root command launches TUI
+        | status/providers/dashboard commands          | no subcommand launches TUI
         v                                             v
 internal/app/status.go                         internal/tui/tui.go
         |                                             |
@@ -40,59 +40,58 @@ internal/app/status.go                         internal/tui/tui.go
       internal/output                 TUI rendering
 ```
 
-The important point: the CLI and TUI share the same engine packages rather than having separate status-checking implementations.
+The main idea: CLI commands and the interactive TUI both use the same provider registry, status orchestration, config code, and normalized status model.
 
 ## Package map
 
 ### `cmd/tuip`
 
-Executable entrypoint. It constructs the root Cobra command and executes it.
+Executable entrypoint. It builds and runs the root Cobra command.
 
 ### `internal/cli`
 
-Owns the command-line interface:
+Owns the command tree:
 
 - `tuip` launches the TUI.
-- `tuip status [provider...]` runs status checks.
+- `tuip status [provider...]` checks provider status.
 - `tuip providers list/search` discovers built-in providers.
 - `tuip dashboard ...` manages YAML dashboards.
 
-The CLI is the main integration point for the core engine. It wires together config loading, provider registry creation, status orchestration, and output formatting.
+This package wires together config loading, provider registry creation, status checks, and CLI output.
 
 ### `internal/app`
 
-Application orchestration that is intentionally independent from Cobra and Bubble Tea.
+Application orchestration independent of Cobra and Bubble Tea.
 
 `CheckProviders`:
 
-- validates provider IDs with the registry,
-- reuses fresh provider-level cache entries when a cache is supplied,
-- fetches cache misses concurrently with a bounded concurrency limit,
-- applies per-attempt provider timeouts and one retry for transient failures,
-- normalizes runtime failures into `status.StateError` snapshots,
-- optionally removes detail-heavy incidents/components unless `Details` is requested,
-- writes refreshed snapshots back to cache when a cache is supplied,
-- returns a `status.Response` consumed by both CLI and TUI.
+- canonicalizes and validates provider IDs,
+- reuses fresh cache entries when a cache is supplied,
+- fetches cache misses concurrently with bounded concurrency,
+- applies per-attempt timeouts and one retry for transient failures,
+- converts provider/runtime failures into `error` snapshots,
+- strips incident/component details unless details are requested,
+- returns a `status.Response` for CLI output or TUI rendering.
 
 This is the core status-checking engine.
 
 ### `internal/status`
 
-Provider-independent normalized data model.
+Provider-independent data model.
 
-Main types:
+Important types:
 
-- `State`: normalized health state enum.
-- `Snapshot`: one provider's normalized status at a point in time.
-- `Incident`: active incident or scheduled maintenance information.
-- `Component`: sub-service/component health when exposed by the upstream provider.
-- `Response`: a batch of snapshots from one check run.
+- `State`
+- `Snapshot`
+- `Incident`
+- `Component`
+- `Response`
 
-The output layer, TUI, tests, and JSON output all consume these types.
+A provider returns a `Snapshot`; the rest of the app should not need provider-specific API shapes.
 
 ### `internal/providers`
 
-Provider contract and registry.
+Provider interface, metadata, registry, alias handling, canonical ID lookup, and search.
 
 Provider interface:
 
@@ -103,79 +102,49 @@ type Provider interface {
 }
 ```
 
-Registry responsibilities:
-
-- register provider factories,
-- resolve aliases to canonical IDs,
-- validate provider IDs,
-- return provider metadata for listing/search/TUI provider browsing,
-- fuzzy-search metadata for provider discovery.
-
-Provider IDs are stable API/config identifiers. Names and descriptions are presentation metadata.
+Provider IDs are stable config/CLI identifiers. Names and descriptions are presentation metadata.
 
 ### `internal/providers/builtin`
 
-Registers all built-in providers into a registry. This is where new built-in providers are usually added if they can use an existing reusable provider adapter.
+Registers the provider catalog that ships with `tuip`.
 
-Current source families:
+Most providers are simple metadata entries that use an existing adapter. New provider additions usually start here.
 
-- Slack custom JSON API.
-- Atlassian Statuspage-compatible JSON (`/api/v2/summary.json`) for most SaaS, cloud, data, AI, and observability providers.
-- PagerDuty status-page JSON (`/api/data`) for PagerDuty-hosted pages such as PagerDuty itself and some GitHub Enterprise Cloud regional pages.
+### Provider adapters
 
-### `internal/providers/statuspage`
+Reusable adapters live under `internal/providers/*`:
 
-Reusable adapter for Atlassian Statuspage-compatible status pages.
+- `statuspage`: Atlassian Statuspage-compatible `/api/v2/summary.json` APIs.
+- `pagerdutystatus`: PagerDuty-hosted status pages exposing `/api/data`.
+- `slack`: Slack-specific public status API handling.
 
-It maps:
-
-- top-level `status.indicator` to `status.State`,
-- components to normalized components,
-- active incidents and scheduled maintenance to normalized incidents,
-- provider page timestamps to `UpdatedAt`.
-
-Most built-in providers use this adapter and only need metadata plus a `SummaryURL`; this includes the expanded data, cloud/hosting, AI, and observability provider wave.
-
-### `internal/providers/pagerdutystatus`
-
-Reusable adapter for PagerDuty-hosted public status pages that expose `/api/data`. This supports PagerDuty itself and GitHub Enterprise Cloud regional providers that do not use Statuspage JSON.
-
-### `internal/providers/slack`
-
-Slack-specific provider. Slack has its own public status API for current status and active incidents. The provider also performs a best-effort text fetch of the status page for component details; failures there do not fail the provider check.
+Add a new provider-specific package only when an existing adapter cannot model the upstream API cleanly.
 
 ### `internal/fetch`
 
-Small HTTP client wrapper with shared defaults:
+Small HTTP helper package for providers. It centralizes:
 
-- timeout,
-- user-agent,
+- default timeout,
+- user agent,
 - JSON decoding,
 - text fetching,
-- contextual HTTP errors including typed non-2xx HTTP status errors for retry decisions.
+- typed/contextual HTTP errors used by retry logic.
 
-All providers should use this package rather than constructing ad-hoc HTTP clients.
-
-### `internal/statuscache`
-
-Persistent JSON cache for latest provider snapshots. It is keyed by canonical provider ID, which lets `all` and user dashboards share fresh results. The TUI currently uses a 60-second TTL for successful snapshots and a 10-second TTL for error snapshots.
-
-### `internal/diagnostics`
-
-Optional structured diagnostics logging. Logs are JSONL and are disabled by default. `TUIP_LOG_LEVEL=debug` or `--log-level debug` writes provider fetch, retry, cache, and TUI refresh events under the configured runtime directory. The active log is `logs/tuip.jsonl`; it rotates at 5MB and keeps three backups (`tuip.1.jsonl` through `tuip.3.jsonl`). Each record includes `run_id`, `pid`, and `version` fields.
+Providers should use this package instead of creating ad-hoc HTTP clients.
 
 ### `internal/config`
 
-YAML dashboard config:
+YAML dashboard config loading and saving.
 
-- resolves default config path,
-- loads existing config,
-- creates empty config when missing,
-- saves with restrictive file permissions,
-- normalizes dashboard/service data,
-- manages dashboard operations like create, rename, delete, add/remove providers, and set default.
+Responsibilities include:
 
-The config schema is intentionally small and shareable. Runtime files generated by tuip live beside the configured config file:
+- resolving the default config path,
+- loading existing config or creating an empty config,
+- saving config with restrictive permissions,
+- creating, renaming, deleting, listing, and selecting dashboards,
+- adding/removing providers from dashboards.
+
+Runtime files live beside the configured config file:
 
 ```text
 <config-dir>/config.yaml
@@ -187,10 +156,25 @@ The config schema is intentionally small and shareable. Runtime files generated 
 
 CLI output formatters:
 
-- `WriteHuman`: colored terminal cards with optional details.
-- `WriteJSON`: normalized JSON output for scripts/tests.
+- human-readable terminal output,
+- normalized JSON output.
 
-CLI output consumes `status.Response`; it should not fetch providers or know about provider-specific APIs.
+Output code consumes `status.Response`; it should not fetch providers or know about provider API details.
+
+### `internal/statuscache`
+
+Persistent JSON cache for latest provider snapshots. The cache is keyed by canonical provider ID so the virtual `all` dashboard and user dashboards can share fresh results.
+
+The TUI currently uses:
+
+- 60-second TTL for successful snapshots,
+- 10-second TTL for error snapshots.
+
+### `internal/diagnostics`
+
+Optional JSONL diagnostics logging. Logs are disabled by default and can be enabled with `TUIP_LOG_LEVEL` or `--log-level`.
+
+Diagnostics include provider fetches, retries, cache events, TUI refreshes, run ID, PID, and version. Logs rotate at 5MB with three backups.
 
 ### `internal/tui`
 
@@ -198,17 +182,18 @@ Bubble Tea terminal UI.
 
 Responsibilities:
 
-- load registry and dashboard config,
-- display management sidebar and status grid,
-- call shared app/config/provider code for refreshes and mutations,
-- render normalized snapshots,
+- load provider registry and dashboard config,
+- render the management/sidebar pane and status cards,
+- call `app.CheckProviders` for refreshes,
+- mutate dashboard config through `internal/config`,
+- reuse provider-level cache entries while switching dashboards,
 - handle keyboard navigation and input modes.
 
-The TUI does not own provider-specific fetch logic. It calls `app.CheckProviders`, just like the CLI.
+The TUI does not fetch provider APIs directly.
 
 ## Status model
 
-Every provider returns a `status.Snapshot`:
+Every provider result is normalized into a `status.Snapshot`:
 
 ```text
 ProviderID  stable provider ID, e.g. github
@@ -223,13 +208,11 @@ Components  sub-service statuses, if exposed
 Error       fetch/parse/runtime error text when State is error
 ```
 
-This model is the contract between providers and the rest of the app.
-
-## Status mapping rules
+## Status mapping
 
 ### Statuspage
 
-Statuspage `indicator` values are mapped as:
+Statuspage `indicator` values map to normalized states:
 
 - `none` -> `operational`
 - `minor` -> `degraded`
@@ -238,43 +221,15 @@ Statuspage `indicator` values are mapped as:
 - `maintenance` -> `maintenance`
 - empty/unknown -> `unknown`
 
-Component statuses are mapped as:
-
-- `operational` -> `operational`
-- `degraded_performance` -> `degraded`
-- `partial_outage` -> `partial_outage`
-- `major_outage` -> `major_outage`
-- `under_maintenance` -> `maintenance`
-
 If top-level status is operational but scheduled maintenance is in progress, the adapter reports `maintenance`.
 
 ### Slack
 
 Slack maps `ok`, `active`, and `resolved` to `operational`. Active incidents override the top-level status to `degraded`. Unknown or empty values become `unknown`.
 
-### Provider fetch errors
+### Fetch errors
 
-Provider fetch errors are converted by `app.CheckProviders` into `error` snapshots so the user can see partial results. The whole command still exits non-zero because `tuip` failed to check everything requested.
-
-## CLI as the engine
-
-The CLI is not just a wrapper around the TUI. It is the canonical way to exercise the core engine:
-
-```bash
-tuip status slack github cloudflare
-tuip status --json github jira asana
-tuip providers list
-tuip dashboard create work slack github jira
-```
-
-The TUI uses the same lower-level packages:
-
-- provider registry from `internal/providers/builtin`,
-- dashboard config from `internal/config`,
-- status orchestration from `internal/app`,
-- normalized model from `internal/status`.
-
-When adding features, prefer implementing reusable behavior in `internal/app`, `internal/config`, `internal/providers`, or `internal/status`, then expose it through both CLI and TUI as needed.
+Provider fetch errors become `error` snapshots so users can still see partial results. The command exits non-zero if any requested provider failed to check.
 
 ## Dashboard config
 
@@ -296,95 +251,39 @@ dashboards:
 Rules:
 
 - Dashboard names are user-defined.
-- Provider IDs should be canonicalized through the registry before saving when commands mutate config.
-- `all` is a virtual dashboard used by the TUI/status resolution to mean every built-in provider.
-- Config file writes use `0600`; parent directories use `0750`.
+- `all` is reserved for the virtual dashboard containing every built-in provider.
+- Provider IDs should be canonicalized through the registry before saving config mutations.
+- Config files are written with `0600`; parent directories use `0750`.
 
-## TUI state model
-
-The TUI model tracks:
-
-- app context and registry,
-- active dashboard and provider IDs,
-- loaded dashboard names/default dashboard,
-- latest `status.Response`,
-- loading/error state,
-- focus area (`sidebar` or `status`),
-- input mode for dashboard status filtering, provider search, and dashboard create/rename/delete,
-- persistent provider status cache used during dashboard refreshes,
-- sidebar/status/detail scroll state,
-- selected status card.
-
-Navigation currently uses:
-
-- arrow keys or `h/j/k/l` for movement,
-- `enter` for selecting/opening,
-- `esc` for backing out of detail/status focus,
-- `/` or the visible `Filter dashboard` action for filtering the status cards shown in the dashboard pane,
-- `c`, `r`, `d`, `s` for create, rename, delete/details, set default,
-- `R` for force-refreshing the active dashboard and bypassing cache,
-- `ctrl+c` to quit.
-
-The status grid has a filter row above the cards and scrolls by full card rows so highlighted cards are not partially hidden.
-
-## Adding a new provider
+## Adding providers
 
 Preferred order:
 
 1. Use an existing structured public API.
-2. Use `internal/providers/statuspage` if the service exposes `/api/v2/summary.json`.
-3. Use `internal/providers/pagerdutystatus` if the service exposes PagerDuty `/api/data`.
-4. Add a new reusable adapter if several providers share another status-page product/API.
+2. Use `internal/providers/statuspage` for Statuspage-compatible `/api/v2/summary.json` APIs.
+3. Use `internal/providers/pagerdutystatus` for PagerDuty-hosted `/api/data` APIs.
+4. Add a reusable adapter if several providers share another status-page API.
 5. Use HTML scraping only as a last resort, with fixtures and tests.
 
-For a Statuspage provider, add a `statuspage.Options` entry in `internal/providers/builtin/statuspageRegistrations` with:
-
-- stable `ID`,
-- optional `Aliases`,
-- display `Name`,
-- `Description`,
-- `Category`,
-- `SourceURL`,
-- `APIURL`,
-- `SummaryURL`.
-
-For a PagerDuty-hosted provider, add a `pagerdutystatus.Options` entry in `internal/providers/builtin/pagerDutyStatusRegistrations` with the same metadata plus `DataURL`.
-
-Then run:
+After adding or changing a provider:
 
 ```bash
-make lint
+gofmt -w cmd internal
 go test ./...
-tuip providers list
-tuip status --json <provider-id>
+go run ./cmd/tuip providers list
+go run ./cmd/tuip status --json <provider-id>
 ```
 
-## Testing strategy
+## Testing
 
-Current tests cover:
-
-- config round trips and dashboard mutations,
-- provider status mapping and fixture parsing,
-- registry aliases/search/canonicalization,
-- CLI dashboard/status behaviors,
-- TUI rendering helpers and scroll invariants.
+Current tests cover config behavior, provider mapping/parsing, registry lookup/search, CLI behavior, cache behavior, diagnostics, and TUI helper logic.
 
 Useful commands:
 
 ```bash
 go test ./...
-make lint
+golangci-lint run
 make check
 ```
 
-`make lint` currently runs `golangci-lint run --fix`, so it can apply formatter/simple fixes.
-
-## Future architecture opportunities
-
-Potential future work:
-
-- Split large TUI file into focused files: model, update, view, sidebar, status grid, details, layout.
-- Add reusable adapters for Status.io, Instatus, Google Workspace JSON, Zendesk Status API, and Microsoft Graph service health.
-- Add cache freshness indicators per status card/detail view.
-- Add provider fixture tests for every built-in Statuspage provider if long-term API stability becomes a concern.
-- Add screenshots or terminal recordings to user docs.
+`make lint` currently runs `golangci-lint run --fix`, so it may apply formatter/simple fixes locally.

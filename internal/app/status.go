@@ -10,10 +10,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/tuipcli/tuip/internal/fetch"
-	"github.com/tuipcli/tuip/internal/providers"
-	"github.com/tuipcli/tuip/internal/status"
-	"github.com/tuipcli/tuip/internal/statuscache"
+	"github.com/ikan31/tuip/internal/fetch"
+	"github.com/ikan31/tuip/internal/providers"
+	"github.com/ikan31/tuip/internal/status"
+	"github.com/ikan31/tuip/internal/statuscache"
 )
 
 const (
@@ -211,19 +211,6 @@ func CheckProviders(ctx context.Context, registry *providers.Registry, providerI
 	logDebug(opts.Logger, "status_check_done", slog.String("result", "ok"))
 
 	return response, nil
-}
-
-// HasUnhealthyProvider reports whether any successfully fetched provider is not
-// operational. Runtime failures are intentionally excluded because callers
-// should handle CheckProviders' returned error separately.
-func HasUnhealthyProvider(response status.Response) bool {
-	for _, result := range response.Results {
-		if result.State != status.StateError && !result.State.IsHealthy() {
-			return true
-		}
-	}
-
-	return false
 }
 
 func acquireProviderSlot(ctx context.Context, sem chan struct{}) bool {

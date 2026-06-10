@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tuipcli/tuip/internal/fetch"
-	"github.com/tuipcli/tuip/internal/status"
+	"github.com/ikan31/tuip/internal/fetch"
+	"github.com/ikan31/tuip/internal/status"
 )
 
 func TestMapStatus(t *testing.T) {

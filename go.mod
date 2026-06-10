@@ -1,4 +1,4 @@
-module github.com/tuipcli/tuip
+module github.com/ikan31/tuip
 
 go 1.26.2
 

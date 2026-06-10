@@ -3,7 +3,7 @@ package providers
 import (
 	"context"
 
-	"github.com/tuipcli/tuip/internal/status"
+	"github.com/ikan31/tuip/internal/status"
 )
 
 // Metadata describes a built-in provider. The registry uses this for lookup,

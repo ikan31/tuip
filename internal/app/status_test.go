@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tuipcli/tuip/internal/providers"
-	"github.com/tuipcli/tuip/internal/status"
-	"github.com/tuipcli/tuip/internal/statuscache"
+	"github.com/ikan31/tuip/internal/providers"
+	"github.com/ikan31/tuip/internal/status"
+	"github.com/ikan31/tuip/internal/statuscache"
 )
 
 func TestCheckProvidersPreservesOrderAndAllowsDegradedStatus(t *testing.T) {
@@ -36,10 +36,6 @@ func TestCheckProvidersPreservesOrderAndAllowsDegradedStatus(t *testing.T) {
 
 	if response.Results[0].ProviderID != "slack" || response.Results[1].ProviderID != "github" {
 		t.Fatalf("result order = [%s, %s], want [slack, github]", response.Results[0].ProviderID, response.Results[1].ProviderID)
-	}
-
-	if !HasUnhealthyProvider(response) {
-		t.Fatalf("HasUnhealthyProvider() = false, want true")
 	}
 }
 

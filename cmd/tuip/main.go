@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/tuipcli/tuip/internal/cli"
+	"github.com/ikan31/tuip/internal/cli"
 )
 
 func main() {

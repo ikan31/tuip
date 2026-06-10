@@ -38,13 +38,6 @@ func (s State) Display() string {
 	}
 }
 
-// IsHealthy reports whether the provider is considered healthy for default
-// human CLI behavior. A degraded SaaS service does not mean tuip failed, but
-// this helper is useful for optional automation flags like --fail-on-degraded.
-func (s State) IsHealthy() bool {
-	return s == StateOperational
-}
-
 // IsRuntimeFailure reports whether the state represents tuip failing to check
 // a provider rather than a successfully fetched upstream health problem.
 func (s State) IsRuntimeFailure() bool {

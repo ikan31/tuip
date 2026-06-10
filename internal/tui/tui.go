@@ -12,13 +12,13 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/tuipcli/tuip/internal/app"
-	"github.com/tuipcli/tuip/internal/config"
-	"github.com/tuipcli/tuip/internal/fetch"
-	"github.com/tuipcli/tuip/internal/providers"
-	"github.com/tuipcli/tuip/internal/providers/builtin"
-	"github.com/tuipcli/tuip/internal/status"
-	"github.com/tuipcli/tuip/internal/statuscache"
+	"github.com/ikan31/tuip/internal/app"
+	"github.com/ikan31/tuip/internal/config"
+	"github.com/ikan31/tuip/internal/fetch"
+	"github.com/ikan31/tuip/internal/providers"
+	"github.com/ikan31/tuip/internal/providers/builtin"
+	"github.com/ikan31/tuip/internal/status"
+	"github.com/ikan31/tuip/internal/statuscache"
 )
 
 const (

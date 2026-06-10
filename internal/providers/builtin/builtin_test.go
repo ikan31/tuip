@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tuipcli/tuip/internal/fetch"
+	"github.com/ikan31/tuip/internal/fetch"
 )
 
 func TestNewRegistryIncludesWave1StatuspageProviders(t *testing.T) {
