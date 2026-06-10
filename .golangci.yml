@@ -24,7 +24,9 @@ linters:
     - err113            # allow ordinary inline errors in app/CLI code
     - exhaustruct       # too noisy for Cobra/http/test struct literals
     - funcorder         # allow file organization by implementation flow
+    - goconst           # repeated provider/status strings are often clearer inline
     - gochecknoglobals  # allow package-level TUI styles/config values
+    - gomodguard        # deprecated in golangci-lint v2.12; no module guard policy needed
     - ireturn           # allow framework/domain interface returns
     - nestif            # review deep nesting manually instead
     - testpackage       # allow same-package tests for internals
