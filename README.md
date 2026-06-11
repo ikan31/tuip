@@ -29,6 +29,12 @@
 
 ## Installation
 
+### Homebrew
+
+```bash
+brew install ikan31/tap/tuip
+```
+
 ### Go
 
 ```bash

@@ -42,4 +42,6 @@ jobs:
           version: "~> v2"
           args: release --clean
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Uses a repo-scoped token so GoReleaser can publish both the GitHub
+          # release in this repo and the formula in ikan31/homebrew-tap.
+          GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}

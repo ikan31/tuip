@@ -51,6 +51,20 @@ archives:
 checksum:
   name_template: checksums.txt
 
+brews:
+  - name: tuip
+    repository:
+      owner: ikan31
+      name: homebrew-tap
+    directory: Formula
+    homepage: https://github.com/ikan31/tuip
+    description: Terminal CLI and TUI for checking public SaaS status pages
+    license: MIT
+    test: |
+      system "#{bin}/tuip", "--version"
+    install: |
+      bin.install "tuip"
+
 snapshot:
   version_template: "{{ incpatch .Version }}-next"
 
