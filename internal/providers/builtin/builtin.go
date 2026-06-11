@@ -1315,15 +1315,6 @@ func statuspageRegistrations(client *fetch.Client) []registration {
 			SummaryURL:  "https://status.rollbar.com/api/v2/summary.json",
 		},
 		{
-			ID:          "rootly",
-			Name:        "Rootly",
-			Description: "Rootly service status",
-			Category:    "Incident Management",
-			SourceURL:   "https://status.rootly.com/",
-			APIURL:      "https://status.rootly.com/api",
-			SummaryURL:  "https://status.rootly.com/api/v2/summary.json",
-		},
-		{
 			ID:          "rubygems",
 			Aliases:     []string{"ruby-gems"},
 			Name:        "RubyGems",

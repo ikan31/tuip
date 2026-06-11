@@ -206,7 +206,6 @@ func TestNewRegistryIncludesDeveloperSaaSProviders(t *testing.T) {
 		"replicate",
 		"revenuecat",
 		"rollbar",
-		"rootly",
 		"rubygems",
 		"rudderstack",
 		"segment",

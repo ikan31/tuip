@@ -54,7 +54,7 @@ Aliases are fine for common shorthand, but dashboards should store canonical IDs
 Before opening a PR, run:
 
 ```bash
-gofmt -w cmd internal
+make fmt
 go test ./...
 ```
 

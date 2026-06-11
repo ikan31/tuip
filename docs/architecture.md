@@ -282,8 +282,7 @@ Useful commands:
 
 ```bash
 go test ./...
+golangci-lint fmt
 golangci-lint run
 make check
 ```
-
-`make lint` currently runs `golangci-lint run --fix`, so it may apply formatter/simple fixes locally.

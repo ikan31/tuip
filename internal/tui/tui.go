@@ -60,7 +60,6 @@ const (
 	minGridCardWidth          = 18
 	footerHeight              = 2
 	borderWidth               = 2
-	errorLineCount            = 2
 	statusFilterLineCount     = 2
 	gridCardHorizontalPadding = 6
 	gridCardNamePadding       = 4
@@ -719,9 +718,6 @@ func (m model) bodyLines() []string {
 	}
 
 	lines := make([]string, 0)
-	if m.err != nil {
-		lines = append(lines, errorStyle.Render("Error: "+m.err.Error()), "")
-	}
 
 	if len(m.response.Results) == 0 {
 		return append(lines, "No providers configured for this dashboard.")
@@ -850,12 +846,12 @@ func statusSnapshotMatches(snapshot status.Snapshot, query string) bool {
 	return false
 }
 
-func (m model) footerLine(scroll, maxScroll int) string {
-	parts := []string{fmt.Sprintf("scroll %d/%d", scroll, maxScroll)}
+func (m model) footerLine(_, _ int) string {
+	parts := make([]string, 0, 4)
 
 	filtered := m.filteredStatusResults()
 	if len(filtered) > 0 && !m.inspect {
-		parts = append(parts, fmt.Sprintf("selected %d/%d", m.selectedStatus+1, len(filtered)))
+		parts = append(parts, fmt.Sprintf("provider %d/%d", m.selectedStatus+1, len(filtered)))
 	}
 
 	if !m.lastRefreshed.IsZero() {
@@ -864,7 +860,12 @@ func (m model) footerLine(scroll, maxScroll int) string {
 
 	parts = append(parts, "cache ttl: "+statusCacheTTL.String())
 
-	return subtleStyle.Render(strings.Join(parts, " • "))
+	footer := subtleStyle.Render(strings.Join(parts, " • "))
+	if m.err != nil {
+		footer += "  " + errorStyle.Render("Error: "+m.err.Error())
+	}
+
+	return footer
 }
 
 func (m model) sidebarRows() []sidebarRow {
@@ -1889,12 +1890,7 @@ func (m model) mainVisibleHeight(height, scroll int) int {
 }
 
 func (m model) gridStartLine() int {
-	lineCount := statusFilterLineCount
-	if m.err != nil {
-		lineCount += errorLineCount
-	}
-
-	return lineCount
+	return statusFilterLineCount
 }
 
 func (m model) gridCardOuterHeight() int {
@@ -1953,7 +1949,7 @@ func (m model) mainWidth() int {
 		return maxFallbackMainWidth
 	}
 
-	return max(minMainWidth, m.width-m.sidebarWidth()-borderWidth)
+	return max(minMainWidth, m.width-m.sidebarWidth()-borderWidth*2)
 }
 
 func (m model) gridColumns() int {
