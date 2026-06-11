@@ -32,6 +32,7 @@ Most concrete SaaS providers do **not** need their own package. If they use an e
 
 - Statuspage-backed services go in `statuspageRegistrations`.
 - PagerDuty-hosted status pages go in `pagerDutyStatusRegistrations`.
+- Uptime Kuma-backed status pages go in `uptimeKumaRegistrations`.
 - Custom providers with their own implementation are registered in `NewRegistry`.
 
 For example, Cloudflare and GitHub are built-in providers, but they do not need separate packages because their status APIs are handled by reusable adapters.
@@ -64,6 +65,17 @@ Reusable adapter for PagerDuty-hosted public status pages exposing:
 
 Use this when a service does not expose Statuspage JSON but has PagerDuty status-page data. This adapter currently maps the page's global status headline into a normalized state.
 
+### `internal/providers/uptimekuma`
+
+Reusable adapter for Uptime Kuma public status pages exposing endpoints like:
+
+```text
+/api/status-page/<slug>
+/api/status-page/heartbeat/<slug>
+```
+
+Use this when a service publishes Uptime Kuma JSON for monitor groups, incidents, and heartbeat status. The adapter maps heartbeat status values into tuip's normalized states and exposes monitors as components.
+
 ### `internal/providers/slack`
 
 Slack-specific provider implementation.
@@ -81,7 +93,7 @@ Put JSON/HTML fixtures here when testing adapter behavior or custom provider par
 The split is by responsibility, not by whether something is "built in".
 
 - `builtin` is the catalog/registry wiring for all providers that ship with tuip.
-- `statuspage` and `pagerdutystatus` are reusable source adapters.
+- `statuspage`, `pagerdutystatus`, and `uptimekuma` are reusable source adapters.
 - `slack` is separate because Slack needs custom fetch/parsing logic.
 - The root `providers` package is only the provider interface, metadata, and registry.
 
@@ -129,7 +141,27 @@ If the service exposes PagerDuty status-page data, add an entry to `pagerDutySta
 
 No new package is needed.
 
-### 3. Custom structured API
+### 3. Uptime Kuma public status page
+
+If the service exposes Uptime Kuma public status JSON, add an entry to `uptimeKumaRegistrations` in `internal/providers/builtin/builtin.go`:
+
+```go
+{
+    ID:           "example",
+    Aliases:      []string{"optional-alias"},
+    Name:         "Example",
+    Description:  "Example service status",
+    Category:     "Developer Tools",
+    SourceURL:    "https://status.example.com/",
+    APIURL:       "https://status.example.com/api/status-page/example",
+    StatusURL:    "https://status.example.com/api/status-page/example",
+    HeartbeatURL: "https://status.example.com/api/status-page/heartbeat/example",
+},
+```
+
+No new package is needed.
+
+### 4. Custom structured API
 
 If the service has its own JSON API shape:
 
@@ -141,7 +173,7 @@ If the service has its own JSON API shape:
 
 Slack is the current example of this approach.
 
-### 4. HTML-only status page
+### 5. HTML-only status page
 
 Use HTML scraping only as a last resort.
 
@@ -157,10 +189,10 @@ If scraping is required:
 After adding or changing a provider:
 
 ```bash
-gofmt -w internal/providers
+make fmt
 go test ./...
-tuip providers list
-tuip status --json <provider-id>
+go run ./cmd/tuip providers list
+go run ./cmd/tuip status --json <provider-id>
 ```
 
 Also update docs/examples if the new provider changes user-facing behavior, aliases, or categories.

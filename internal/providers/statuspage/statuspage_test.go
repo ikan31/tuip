@@ -36,6 +36,28 @@ func TestMapIndicator(t *testing.T) {
 	}
 }
 
+func TestMapPageStatus(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]status.State{
+		"UP":             status.StateOperational,
+		"HASISSUES":      status.StateDegraded,
+		"partial_outage": status.StatePartialOutage,
+		"DOWN":           status.StateMajorOutage,
+		"maintenance":    status.StateMaintenance,
+		"surprise":       status.StateUnknown,
+	}
+	for input, want := range tests {
+		t.Run(input, func(t *testing.T) {
+			t.Parallel()
+
+			if got := MapPageStatus(input); got != want {
+				t.Fatalf("MapPageStatus(%q) = %q, want %q", input, got, want)
+			}
+		})
+	}
+}
+
 func TestMapComponentStatus(t *testing.T) {
 	t.Parallel()
 
@@ -82,6 +104,25 @@ func TestProviderFetchGitHubFixture(t *testing.T) {
 
 	if len(snapshot.Components) != 2 {
 		t.Fatalf("components len = %d, want 2", len(snapshot.Components))
+	}
+}
+
+func TestProviderFetchLightweightPageStatusFixture(t *testing.T) {
+	t.Parallel()
+
+	provider := providerWithFixture(t, "lightweight_page_status_up.json", "perplexity", "Perplexity")
+
+	snapshot, err := provider.Fetch(context.Background())
+	if err != nil {
+		t.Fatalf("Fetch() error = %v", err)
+	}
+
+	if snapshot.State != status.StateOperational {
+		t.Fatalf("State = %q, want %q", snapshot.State, status.StateOperational)
+	}
+
+	if snapshot.Summary != "Operational" {
+		t.Fatalf("Summary = %q, want Operational", snapshot.Summary)
 	}
 }
 

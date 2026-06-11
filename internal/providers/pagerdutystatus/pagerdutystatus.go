@@ -66,7 +66,7 @@ func (p *Provider) Fetch(ctx context.Context) (status.Snapshot, error) {
 
 	return status.Snapshot{
 		ProviderID: p.options.ID,
-		Name:       firstNonEmpty(payload.Layout.LayoutSettings.Name, p.options.Name),
+		Name:       firstNonEmpty(p.options.Name, payload.Layout.LayoutSettings.Name),
 		State:      state,
 		Summary:    summary,
 		SourceURL:  p.options.SourceURL,
@@ -84,7 +84,7 @@ func MapHeadline(headline string) status.State {
 	switch {
 	case normalized == "":
 		return status.StateUnknown
-	case strings.Contains(normalized, "all systems operational") || strings.Contains(normalized, "running smoothly"):
+	case strings.Contains(normalized, "all systems operational") || strings.Contains(normalized, "running smoothly") || strings.Contains(normalized, "paddling smoothly"):
 		return status.StateOperational
 	case strings.Contains(normalized, "maintenance"):
 		return status.StateMaintenance

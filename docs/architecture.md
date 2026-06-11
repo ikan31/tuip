@@ -116,6 +116,7 @@ Reusable adapters live under `internal/providers/*`:
 
 - `statuspage`: Atlassian Statuspage-compatible `/api/v2/summary.json` APIs.
 - `pagerdutystatus`: PagerDuty-hosted status pages exposing `/api/data`.
+- `uptimekuma`: Uptime Kuma public status pages exposing status-page and heartbeat JSON.
 - `slack`: Slack-specific public status API handling.
 
 Add a new provider-specific package only when an existing adapter cannot model the upstream API cleanly.
@@ -184,7 +185,7 @@ Responsibilities:
 
 - load provider registry and dashboard config,
 - render the management/sidebar pane and status cards,
-- call `app.CheckProviders` for refreshes,
+- call `app.StreamProviders` for progressive refreshes,
 - mutate dashboard config through `internal/config`,
 - reuse provider-level cache entries while switching dashboards,
 - handle keyboard navigation and input modes.
@@ -262,13 +263,14 @@ Preferred order:
 1. Use an existing structured public API.
 2. Use `internal/providers/statuspage` for Statuspage-compatible `/api/v2/summary.json` APIs.
 3. Use `internal/providers/pagerdutystatus` for PagerDuty-hosted `/api/data` APIs.
-4. Add a reusable adapter if several providers share another status-page API.
-5. Use HTML scraping only as a last resort, with fixtures and tests.
+4. Use `internal/providers/uptimekuma` for Uptime Kuma status-page and heartbeat JSON APIs.
+5. Add a reusable adapter if several providers share another status-page API.
+6. Use HTML scraping only as a last resort, with fixtures and tests.
 
 After adding or changing a provider:
 
 ```bash
-gofmt -w cmd internal
+make fmt
 go test ./...
 go run ./cmd/tuip providers list
 go run ./cmd/tuip status --json <provider-id>
@@ -281,8 +283,7 @@ Current tests cover config behavior, provider mapping/parsing, registry lookup/s
 Useful commands:
 
 ```bash
+make fmt
+make lint
 go test ./...
-golangci-lint fmt
-golangci-lint run
-make check
 ```

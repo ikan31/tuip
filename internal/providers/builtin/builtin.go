@@ -8,6 +8,7 @@ import (
 	"github.com/ikan31/tuip/internal/providers/pagerdutystatus"
 	"github.com/ikan31/tuip/internal/providers/slack"
 	"github.com/ikan31/tuip/internal/providers/statuspage"
+	"github.com/ikan31/tuip/internal/providers/uptimekuma"
 )
 
 const customProviderCount = 1
@@ -23,13 +24,15 @@ func NewRegistry(client *fetch.Client) (*providers.Registry, error) {
 
 	statuspageRegs := statuspageRegistrations(client)
 	pagerDutyStatusRegs := pagerDutyStatusRegistrations(client)
-	registrations := make([]registration, 0, customProviderCount+len(pagerDutyStatusRegs)+len(statuspageRegs))
+	uptimeKumaRegs := uptimeKumaRegistrations(client)
+	registrations := make([]registration, 0, customProviderCount+len(pagerDutyStatusRegs)+len(uptimeKumaRegs)+len(statuspageRegs))
 	registrations = append(registrations, registration{
 		metadata: slack.New(client).Metadata(),
 		factory:  func() providers.Provider { return slack.New(client) },
 	})
 
 	registrations = append(registrations, pagerDutyStatusRegs...)
+	registrations = append(registrations, uptimeKumaRegs...)
 	registrations = append(registrations, statuspageRegs...)
 
 	for _, registration := range registrations {
@@ -83,6 +86,15 @@ func pagerDutyStatusRegistrations(client *fetch.Client) []registration {
 			APIURL:      "https://us.githubstatus.com/api/data",
 			DataURL:     "https://us.githubstatus.com/api/data",
 		},
+		{
+			ID:          "motherduck",
+			Name:        "MotherDuck",
+			Description: "MotherDuck service status",
+			Category:    "Data Platforms",
+			SourceURL:   "https://status.motherduck.com/posts/dashboard",
+			APIURL:      "https://status.motherduck.com/api/data",
+			DataURL:     "https://status.motherduck.com/api/data",
+		},
 	}
 
 	registrations := make([]registration, 0, len(options))
@@ -93,6 +105,45 @@ func pagerDutyStatusRegistrations(client *fetch.Client) []registration {
 			metadata: provider.Metadata(),
 			factory: func() providers.Provider {
 				return pagerdutystatus.NewProvider(client, current)
+			},
+		})
+	}
+
+	return registrations
+}
+
+func uptimeKumaRegistrations(client *fetch.Client) []registration {
+	options := []uptimekuma.Options{
+		{
+			ID:           "codeberg",
+			Name:         "Codeberg",
+			Description:  "Codeberg service status",
+			Category:     "Developer Tools",
+			SourceURL:    "https://status.codeberg.org/status/codeberg",
+			APIURL:       "https://status.codeberg.org/api/status-page/codeberg",
+			StatusURL:    "https://status.codeberg.org/api/status-page/codeberg",
+			HeartbeatURL: "https://status.codeberg.org/api/status-page/heartbeat/codeberg",
+		},
+		{
+			ID:           "forgejo",
+			Name:         "Forgejo",
+			Description:  "Forgejo service status",
+			Category:     "Developer Tools",
+			SourceURL:    "https://status.forgejo.org/",
+			APIURL:       "https://status.forgejo.org/api/status-page/forgejo",
+			StatusURL:    "https://status.forgejo.org/api/status-page/forgejo",
+			HeartbeatURL: "https://status.forgejo.org/api/status-page/heartbeat/forgejo",
+		},
+	}
+
+	registrations := make([]registration, 0, len(options))
+	for _, option := range options {
+		current := option
+		provider := uptimekuma.NewProvider(client, current)
+		registrations = append(registrations, registration{
+			metadata: provider.Metadata(),
+			factory: func() providers.Provider {
+				return uptimekuma.NewProvider(client, current)
 			},
 		})
 	}
@@ -1398,6 +1449,96 @@ func statuspageRegistrations(client *fetch.Client) []registration {
 			SummaryURL:  "https://status.sparkpost.com/api/v2/summary.json",
 		},
 		{
+			ID:          "splunk-cloud",
+			Aliases:     []string{"splunkcloud"},
+			Name:        "Splunk Cloud Platform",
+			Description: "Splunk Cloud Platform service status",
+			Category:    "Cloud & Hosting",
+			SourceURL:   "https://status.splunkcloud.com/",
+			APIURL:      "https://status.splunkcloud.com/api",
+			SummaryURL:  "https://status.splunkcloud.com/api/v2/summary.json",
+		},
+		{
+			ID:          "splunk-observability-au0",
+			Aliases:     []string{"signalfx-au0"},
+			Name:        "Splunk Observability Cloud AU0",
+			Description: "Splunk Observability Cloud AU0 regional status",
+			Category:    "Observability",
+			SourceURL:   "https://status.au0.signalfx.com/",
+			APIURL:      "https://status.au0.signalfx.com/api",
+			SummaryURL:  "https://status.au0.signalfx.com/api/v2/summary.json",
+		},
+		{
+			ID:          "splunk-observability-eu0",
+			Aliases:     []string{"signalfx-eu0"},
+			Name:        "Splunk Observability Cloud EU0",
+			Description: "Splunk Observability Cloud EU0 regional status",
+			Category:    "Observability",
+			SourceURL:   "https://status.eu0.signalfx.com/",
+			APIURL:      "https://status.eu0.signalfx.com/api",
+			SummaryURL:  "https://status.eu0.signalfx.com/api/v2/summary.json",
+		},
+		{
+			ID:          "splunk-observability-eu2",
+			Aliases:     []string{"signalfx-eu2"},
+			Name:        "Splunk Observability Cloud EU2",
+			Description: "Splunk Observability Cloud EU2 regional status",
+			Category:    "Observability",
+			SourceURL:   "https://status.eu2.signalfx.com/",
+			APIURL:      "https://status.eu2.signalfx.com/api",
+			SummaryURL:  "https://status.eu2.signalfx.com/api/v2/summary.json",
+		},
+		{
+			ID:          "splunk-observability-jp0",
+			Aliases:     []string{"signalfx-jp0"},
+			Name:        "Splunk Observability Cloud JP0",
+			Description: "Splunk Observability Cloud JP0 regional status",
+			Category:    "Observability",
+			SourceURL:   "https://status.jp0.signalfx.com/",
+			APIURL:      "https://status.jp0.signalfx.com/api",
+			SummaryURL:  "https://status.jp0.signalfx.com/api/v2/summary.json",
+		},
+		{
+			ID:          "splunk-observability-sg0",
+			Aliases:     []string{"signalfx-sg0"},
+			Name:        "Splunk Observability Cloud SG0",
+			Description: "Splunk Observability Cloud SG0 regional status",
+			Category:    "Observability",
+			SourceURL:   "https://status.sg0.signalfx.com/",
+			APIURL:      "https://status.sg0.signalfx.com/api",
+			SummaryURL:  "https://status.sg0.signalfx.com/api/v2/summary.json",
+		},
+		{
+			ID:          "splunk-observability-us0",
+			Aliases:     []string{"signalfx", "signalfx-us0"},
+			Name:        "Splunk Observability Cloud US0",
+			Description: "Splunk Observability Cloud US0 regional status",
+			Category:    "Observability",
+			SourceURL:   "https://status.us0.signalfx.com/",
+			APIURL:      "https://status.us0.signalfx.com/api",
+			SummaryURL:  "https://status.us0.signalfx.com/api/v2/summary.json",
+		},
+		{
+			ID:          "splunk-observability-us1",
+			Aliases:     []string{"signalfx-us1"},
+			Name:        "Splunk Observability Cloud US1",
+			Description: "Splunk Observability Cloud US1 regional status",
+			Category:    "Observability",
+			SourceURL:   "https://status.us1.signalfx.com/",
+			APIURL:      "https://status.us1.signalfx.com/api",
+			SummaryURL:  "https://status.us1.signalfx.com/api/v2/summary.json",
+		},
+		{
+			ID:          "splunk-observability-us2",
+			Aliases:     []string{"signalfx-us2"},
+			Name:        "Splunk Observability Cloud US2",
+			Description: "Splunk Observability Cloud US2 regional status",
+			Category:    "Observability",
+			SourceURL:   "https://status.us2.signalfx.com/",
+			APIURL:      "https://status.us2.signalfx.com/api",
+			SummaryURL:  "https://status.us2.signalfx.com/api/v2/summary.json",
+		},
+		{
 			ID:          "splunk-on-call",
 			Aliases:     []string{"victorops"},
 			Name:        "Splunk On-Call",
@@ -1565,6 +1706,134 @@ func statuspageRegistrations(client *fetch.Client) []registration {
 			SourceURL:   "https://trust.zuora.com/",
 			APIURL:      "https://trust.zuora.com/api",
 			SummaryURL:  "https://trust.zuora.com/api/v2/summary.json",
+		},
+		{
+			ID:          "airbyte",
+			Name:        "Airbyte",
+			Description: "Airbyte service status",
+			Category:    "Data Integration",
+			SourceURL:   "https://status.airbyte.com/",
+			APIURL:      "https://status.airbyte.com/api",
+			SummaryURL:  "https://status.airbyte.com/api/v2/summary.json",
+		},
+		{
+			ID:          "codemagic",
+			Name:        "Codemagic",
+			Description: "Codemagic service status",
+			Category:    "CI/CD",
+			SourceURL:   "https://status.codemagic.io/",
+			APIURL:      "https://status.codemagic.io/api",
+			SummaryURL:  "https://status.codemagic.io/api/v2/summary.json",
+		},
+		{
+			ID:          "cursor",
+			Name:        "Cursor",
+			Description: "Cursor service status",
+			Category:    "AI",
+			SourceURL:   "https://status.cursor.com/",
+			APIURL:      "https://status.cursor.com/api",
+			SummaryURL:  "https://status.cursor.com/api/v2/summary.json",
+		},
+		{
+			ID:          "flagsmith",
+			Name:        "Flagsmith",
+			Description: "Flagsmith service status",
+			Category:    "Feature Flags",
+			SourceURL:   "https://status.flagsmith.com/",
+			APIURL:      "https://status.flagsmith.com/api",
+			SummaryURL:  "https://status.flagsmith.com/api/v2/summary.json",
+		},
+		{
+			ID:          "keeper",
+			Name:        "Keeper",
+			Description: "Keeper service status",
+			Category:    "Identity & Security",
+			SourceURL:   "https://statuspage.keeper.io/",
+			APIURL:      "https://statuspage.keeper.io/api",
+			SummaryURL:  "https://statuspage.keeper.io/api/v2/summary.json",
+		},
+		{
+			ID:          "lovable",
+			Name:        "Lovable",
+			Description: "Lovable service status",
+			Category:    "AI",
+			SourceURL:   "https://status.lovable.dev/",
+			APIURL:      "https://status.lovable.dev/api",
+			SummaryURL:  "https://status.lovable.dev/api/v2/summary.json",
+		},
+		{
+			ID:          "notion",
+			Name:        "Notion",
+			Description: "Notion service status",
+			Category:    "Collaboration",
+			SourceURL:   "https://www.notion-status.com/",
+			APIURL:      "https://www.notion-status.com/api",
+			SummaryURL:  "https://www.notion-status.com/api/v2/summary.json",
+		},
+		{
+			ID:          "optimizely",
+			Name:        "Optimizely",
+			Description: "Optimizely service status",
+			Category:    "Feature Flags",
+			SourceURL:   "https://status.optimizely.com/",
+			APIURL:      "https://status.optimizely.com/api",
+			SummaryURL:  "https://status.optimizely.com/api/v2/summary.json",
+		},
+		{
+			ID:          "perplexity",
+			Name:        "Perplexity",
+			Description: "Perplexity service status",
+			Category:    "AI",
+			SourceURL:   "https://status.perplexity.com/",
+			APIURL:      "https://status.perplexity.com/api",
+			SummaryURL:  "https://status.perplexity.com/api/v2/summary.json",
+		},
+		{
+			ID:          "proton",
+			Name:        "Proton",
+			Description: "Proton service status",
+			Category:    "Collaboration",
+			SourceURL:   "https://status.proton.me/",
+			APIURL:      "https://status.proton.me/api",
+			SummaryURL:  "https://status.proton.me/api/v2/summary.json",
+		},
+		{
+			ID:          "swagger",
+			Aliases:     []string{"smartbear-swagger"},
+			Name:        "Swagger",
+			Description: "Swagger service status",
+			Category:    "API & Developer Tools",
+			SourceURL:   "https://swagger.status.smartbear.com/",
+			APIURL:      "https://swagger.status.smartbear.com/api",
+			SummaryURL:  "https://swagger.status.smartbear.com/api/v2/summary.json",
+		},
+		{
+			ID:          "tidb-cloud",
+			Aliases:     []string{"tidb"},
+			Name:        "TiDB Cloud",
+			Description: "TiDB Cloud service status",
+			Category:    "Databases",
+			SourceURL:   "https://status.tidbcloud.com/",
+			APIURL:      "https://status.tidbcloud.com/api",
+			SummaryURL:  "https://status.tidbcloud.com/api/v2/summary.json",
+		},
+		{
+			ID:          "tinybird",
+			Name:        "Tinybird",
+			Description: "Tinybird service status",
+			Category:    "Data Platforms",
+			SourceURL:   "https://status.tinybird.co/",
+			APIURL:      "https://status.tinybird.co/api",
+			SummaryURL:  "https://status.tinybird.co/api/v2/summary.json",
+		},
+		{
+			ID:          "windsurf",
+			Name:        "Windsurf",
+			Description: "Windsurf service status",
+			Category:    "AI",
+			SourceURL:   "https://status.windsurf.com/",
+			APIURL:      "https://status.windsurf.com/api",
+			SummaryURL:  "https://status.windsurf.com/api/v2/summary.json",
 		},
 		{
 			ID:          "zuplo",

@@ -15,14 +15,15 @@ func TestMapHeadline(t *testing.T) {
 	t.Parallel()
 
 	tests := map[string]status.State{
-		"All Systems Operational":        status.StateOperational,
-		"Everything is running smoothly": status.StateOperational,
-		"Scheduled Maintenance":          status.StateMaintenance,
-		"Partial System Outage":          status.StatePartialOutage,
-		"Degraded Performance":           status.StateDegraded,
-		"Major Service Outage":           status.StateMajorOutage,
-		"":                               status.StateUnknown,
-		"Something surprising":           status.StateUnknown,
+		"All Systems Operational":         status.StateOperational,
+		"Everything is running smoothly":  status.StateOperational,
+		"Everything is paddling smoothly": status.StateOperational,
+		"Scheduled Maintenance":           status.StateMaintenance,
+		"Partial System Outage":           status.StatePartialOutage,
+		"Degraded Performance":            status.StateDegraded,
+		"Major Service Outage":            status.StateMajorOutage,
+		"":                                status.StateUnknown,
+		"Something surprising":            status.StateUnknown,
 	}
 	for input, want := range tests {
 		t.Run(input, func(t *testing.T) {

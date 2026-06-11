@@ -170,7 +170,7 @@ The TUI keeps a 60-second provider-level status cache. Error snapshots are cache
 
 ## Built-in providers
 
-`tuip` ships with more than 150 built-in providers. Use the CLI as the source of truth for the current catalog:
+`tuip` ships with more than 180 built-in providers. Use the CLI as the source of truth for the current catalog:
 
 ```bash
 tuip providers list
@@ -178,14 +178,13 @@ tuip providers search github
 tuip providers search qbo
 ```
 
-Common examples include Slack, GitHub, GitHub Enterprise Cloud regional status pages, Cloudflare, Jira, Asana, OpenAI, Anthropic, Datadog regional status pages, Snowflake, Fivetran, HubSpot, QuickBooks Online, and many others.
-
 Provider IDs are stable and intended for dashboard config. Aliases are accepted in CLI commands and dashboard config; for example, `qbo` resolves to `quickbooks-online`, and `ghec-eu` resolves to `github-enterprise-cloud-eu`.
 
 Provider source notes:
 
 - Most providers use Atlassian Statuspage-compatible JSON (`/api/v2/summary.json`).
 - Some providers use PagerDuty-hosted status-page JSON (`/api/data`).
+- Some providers use Uptime Kuma public status-page JSON.
 - Slack uses Slack's public status API for top-level status and active incidents.
 
 ## Configuration
@@ -259,9 +258,9 @@ tuip --log-level debug
 Common commands:
 
 ```bash
-go test ./...
+make fmt
 make lint
-make check
+go test ./...
 ```
 
 Build locally:

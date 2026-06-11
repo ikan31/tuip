@@ -57,7 +57,11 @@ func (p *Provider) Fetch(ctx context.Context) (status.Snapshot, error) {
 
 	checkedAt := time.Now().UTC()
 	updatedAt := parseTime(payload.Page.UpdatedAt)
+
 	state := MapIndicator(payload.Status.Indicator)
+	if strings.TrimSpace(payload.Status.Indicator) == "" && strings.TrimSpace(payload.Page.Status) != "" {
+		state = MapPageStatus(payload.Page.Status)
+	}
 
 	summary := strings.TrimSpace(payload.Status.Description)
 
@@ -111,6 +115,28 @@ func MapIndicator(indicator string) status.State {
 	case "critical":
 		return status.StateMajorOutage
 	case "maintenance":
+		return status.StateMaintenance
+	case "", "unknown":
+		return status.StateUnknown
+	default:
+		return status.StateUnknown
+	}
+}
+
+// MapPageStatus maps lightweight Statuspage-compatible page statuses into
+// normalized states. Some providers expose only page.status instead of the
+// Atlassian status.indicator object.
+func MapPageStatus(pageStatus string) status.State {
+	switch strings.ToLower(strings.TrimSpace(pageStatus)) {
+	case "up", "operational", "ok", "active":
+		return status.StateOperational
+	case "hasissues", "has_issues", "degraded", "degraded_performance":
+		return status.StateDegraded
+	case "partialoutage", "partial_outage":
+		return status.StatePartialOutage
+	case "down", "majoroutage", "major_outage", "critical":
+		return status.StateMajorOutage
+	case "maintenance", "under_maintenance":
 		return status.StateMaintenance
 	case "", "unknown":
 		return status.StateUnknown
@@ -235,6 +261,7 @@ type pageResponse struct {
 	ID        string `json:"id"`
 	Name      string `json:"name"`
 	URL       string `json:"url"`
+	Status    string `json:"status"`
 	UpdatedAt string `json:"updated_at"`
 }
 
