@@ -38,6 +38,15 @@ type StatusOptions struct {
 	RetryCount    int
 }
 
+// ProviderStatusResult is a single streamed provider status update.
+type ProviderStatusResult struct {
+	Index        int
+	Snapshot     status.Snapshot
+	RuntimeError bool
+	Done         bool
+	Err          error
+}
+
 // CheckProviders fetches all requested providers concurrently and returns
 // results in the same order as the requested IDs.
 func CheckProviders(ctx context.Context, registry *providers.Registry, providerIDs []string, opts StatusOptions) (status.Response, error) {
@@ -211,6 +220,190 @@ func CheckProviders(ctx context.Context, registry *providers.Registry, providerI
 	logDebug(opts.Logger, "status_check_done", slog.String("result", "ok"))
 
 	return response, nil
+}
+
+// StreamProviders fetches requested providers concurrently and emits each
+// provider snapshot as soon as it is available. A final Done result is emitted
+// after cache persistence and aggregate error handling are complete.
+func StreamProviders(ctx context.Context, registry *providers.Registry, providerIDs []string, opts StatusOptions) (<-chan ProviderStatusResult, error) {
+	if len(providerIDs) == 0 {
+		return nil, errors.New("at least one provider is required")
+	}
+
+	err := registry.ValidateIDs(providerIDs)
+	if err != nil {
+		return nil, fmt.Errorf("validate provider IDs: %w", err)
+	}
+
+	concurrency := opts.MaxConcurrent
+	if concurrency <= 0 {
+		concurrency = DefaultMaxConcurrency
+	}
+
+	if concurrency > len(providerIDs) {
+		concurrency = len(providerIDs)
+	}
+
+	retryCount := opts.RetryCount
+	if retryCount < 0 {
+		retryCount = 0
+	} else if retryCount == 0 {
+		retryCount = DefaultRetryCount
+	}
+
+	cacheTTL := opts.CacheTTL
+	if cacheTTL <= 0 {
+		cacheTTL = DefaultCacheTTL
+	}
+
+	errorCacheTTL := opts.ErrorCacheTTL
+	if errorCacheTTL <= 0 {
+		errorCacheTTL = DefaultErrorCacheTTL
+	}
+
+	logDebug(opts.Logger, "status_stream_start",
+		slog.Int("provider_count", len(providerIDs)),
+		slog.Bool("details", opts.Details),
+		slog.Bool("force_refresh", opts.ForceRefresh),
+		slog.Int("max_concurrent", concurrency),
+		slog.Int("retry_count", retryCount),
+	)
+
+	results := make(chan ProviderStatusResult)
+
+	go func() {
+		defer close(results)
+
+		var (
+			wg              sync.WaitGroup
+			mu              sync.Mutex
+			hadRuntimeError bool
+			cacheUpdated    bool
+		)
+
+		sem := make(chan struct{}, concurrency)
+
+		for i, providerID := range providerIDs {
+			provider, _ := registry.Get(providerID)
+			metadata := provider.Metadata()
+
+			wg.Go(func() {
+				if !acquireProviderSlot(ctx, sem) {
+					snapshot := errorSnapshot(metadata, "status check canceled before provider fetch")
+
+					mu.Lock()
+					hadRuntimeError = true
+					mu.Unlock()
+
+					results <- ProviderStatusResult{Index: i, Snapshot: snapshotForDetails(snapshot, opts.Details), RuntimeError: true}
+
+					return
+				}
+				defer releaseProviderSlot(sem)
+
+				now := time.Now().UTC()
+				if opts.Cache != nil && !opts.ForceRefresh {
+					cached, lookupState, age := opts.Cache.Lookup(metadata.ID, now)
+					logDebug(opts.Logger, "status_cache_lookup",
+						slog.String("provider", metadata.ID),
+						slog.String("state", string(lookupState)),
+						slog.Int64("age_ms", age.Milliseconds()),
+					)
+
+					if lookupState == statuscache.LookupHit {
+						runtimeError := cached.State == status.StateError
+						if runtimeError {
+							mu.Lock()
+							hadRuntimeError = true
+							mu.Unlock()
+						}
+
+						results <- ProviderStatusResult{Index: i, Snapshot: snapshotForDetails(cached, opts.Details), RuntimeError: runtimeError}
+
+						return
+					}
+				}
+
+				started := time.Now()
+
+				logDebug(opts.Logger, "provider_fetch_start", slog.String("provider", metadata.ID))
+
+				snapshot, fetchErr := fetchProviderWithRetry(ctx, provider, metadata.ID, retryCount, opts.Logger)
+				duration := time.Since(started)
+				runtimeError := false
+
+				if fetchErr != nil {
+					snapshot = errorSnapshot(metadata, fetchErr.Error())
+					runtimeError = true
+
+					logWarn(opts.Logger, "provider_fetch_error",
+						slog.String("provider", metadata.ID),
+						slog.Int64("duration_ms", duration.Milliseconds()),
+						slog.String("error", fetchErr.Error()),
+					)
+
+					mu.Lock()
+					hadRuntimeError = true
+					mu.Unlock()
+				} else {
+					if snapshot.CheckedAt.IsZero() {
+						snapshot.CheckedAt = time.Now().UTC()
+					}
+
+					logDebug(opts.Logger, "provider_fetch_done",
+						slog.String("provider", metadata.ID),
+						slog.String("state", string(snapshot.State)),
+						slog.Int64("duration_ms", duration.Milliseconds()),
+					)
+				}
+
+				if opts.Cache != nil {
+					ttl := cacheTTL
+					if snapshot.State == status.StateError {
+						ttl = errorCacheTTL
+					}
+
+					opts.Cache.Set(metadata.ID, snapshot, ttl, time.Now().UTC())
+					logDebug(opts.Logger, "status_cache_store",
+						slog.String("provider", metadata.ID),
+						slog.String("state", string(snapshot.State)),
+						slog.Int64("ttl_ms", ttl.Milliseconds()),
+					)
+
+					mu.Lock()
+					cacheUpdated = true
+					mu.Unlock()
+				}
+
+				results <- ProviderStatusResult{Index: i, Snapshot: snapshotForDetails(snapshot, opts.Details), RuntimeError: runtimeError}
+			})
+		}
+
+		wg.Wait()
+
+		if opts.Cache != nil && cacheUpdated {
+			err := opts.Cache.Save()
+			if err != nil {
+				logWarn(opts.Logger, "status_cache_save_error", slog.String("path", opts.Cache.Path()), slog.String("error", err.Error()))
+			} else {
+				logDebug(opts.Logger, "status_cache_saved", slog.String("path", opts.Cache.Path()))
+			}
+		}
+
+		if hadRuntimeError {
+			logWarn(opts.Logger, "status_stream_done", slog.String("result", "runtime_error"))
+
+			results <- ProviderStatusResult{Done: true, Err: errors.New("one or more providers failed")}
+
+			return
+		}
+
+		logDebug(opts.Logger, "status_stream_done", slog.String("result", "ok"))
+
+		results <- ProviderStatusResult{Done: true}
+	}()
+
+	return results, nil
 }
 
 func acquireProviderSlot(ctx context.Context, sem chan struct{}) bool {

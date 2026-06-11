@@ -124,7 +124,6 @@ const (
 
 const (
 	actionRefreshDashboard       = "refresh-dashboard"
-	actionFilterDashboard        = "filter-dashboard"
 	actionNewDashboard           = "new-dashboard"
 	actionRenameDashboard        = "rename-dashboard"
 	actionDeleteDashboard        = "delete-dashboard"
@@ -176,6 +175,8 @@ type model struct {
 	detailsLoaded    bool
 	inspect          bool
 	selectedStatus   int
+	activeRefreshID  int64
+	loadingTotal     int
 
 	focus            focusArea
 	mode             inputMode
@@ -196,6 +197,22 @@ type refreshMsg struct {
 	response         status.Response
 	detailsLoaded    bool
 	err              error
+}
+
+type refreshStartedMsg struct {
+	refreshID        int64
+	providerIDs      []string
+	dashboard        string
+	dashboardNames   []string
+	defaultDashboard string
+	detailsLoaded    bool
+	results          <-chan app.ProviderStatusResult
+}
+
+type providerStatusMsg struct {
+	refreshID int64
+	result    app.ProviderStatusResult
+	results   <-chan app.ProviderStatusResult
 }
 
 type mutationMsg struct {
@@ -264,6 +281,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.refresh()
 	case refreshMsg:
 		m.loading = false
+		m.loadingTotal = 0
 		m.providerIDs = msg.providerIDs
 		m.dashboard = msg.dashboard
 		m.dashboardNames = msg.dashboardNames
@@ -277,6 +295,55 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.detailScroll = m.clampedDetailScroll()
 		m.sidebarIndex = m.clampedSidebarIndex()
 		m.sidebarScroll = m.clampedSidebarScroll()
+	case refreshStartedMsg:
+		if msg.refreshID < m.activeRefreshID {
+			return m, nil
+		}
+
+		m.activeRefreshID = msg.refreshID
+		m.loading = true
+		m.loadingTotal = len(msg.providerIDs)
+		m.providerIDs = msg.providerIDs
+		m.dashboard = msg.dashboard
+		m.dashboardNames = msg.dashboardNames
+		m.defaultDashboard = msg.defaultDashboard
+		m.response = status.Response{CheckedAt: time.Now().UTC(), Results: []status.Snapshot{}}
+		m.detailsLoaded = msg.detailsLoaded
+		m.err = nil
+		m.selectedStatus = m.clampedStatusIndex()
+		m.statusScroll = m.clampedStatusScroll()
+		m.detailScroll = m.clampedDetailScroll()
+		m.sidebarIndex = m.clampedSidebarIndex()
+		m.sidebarScroll = m.clampedSidebarScroll()
+
+		return m, waitForProviderStatus(msg.refreshID, msg.results)
+	case providerStatusMsg:
+		if msg.refreshID != m.activeRefreshID {
+			return m, nil
+		}
+
+		if msg.result.Done {
+			m.loading = false
+			m.loadingTotal = 0
+			m.err = msg.result.Err
+			m.lastRefreshed = time.Now().UTC()
+			m.selectedStatus = m.clampedStatusIndex()
+			m.statusScroll = m.clampedStatusScroll()
+
+			return m, nil
+		}
+
+		m.response.CheckedAt = time.Now().UTC()
+		m.response.Results = upsertOrderedSnapshot(m.response.Results, msg.result.Snapshot, m.providerIDs)
+
+		if msg.result.RuntimeError {
+			m.err = errors.New("one or more providers failed")
+		}
+
+		m.selectedStatus = m.clampedStatusIndex()
+		m.statusScroll = m.clampedStatusScroll()
+
+		return m, waitForProviderStatus(msg.refreshID, msg.results)
 	}
 
 	return m, nil
@@ -418,7 +485,7 @@ func (m model) updateKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 		return m, nil
 	case "/":
-		if !m.inspect {
+		if !m.inspect && m.focus == focusStatus {
 			m = m.startStatusFilter()
 		}
 
@@ -713,7 +780,7 @@ func (m model) renderMain(height, scroll int) string {
 }
 
 func (m model) bodyLines() []string {
-	if m.loading {
+	if m.loading && len(m.response.Results) == 0 {
 		return []string{"Loading statuses..."}
 	}
 
@@ -779,13 +846,15 @@ func (m model) statusFilterLines(matchCount int) []string {
 		value = m.statusFind + "_"
 	}
 
-	line := "Filter: " + value
+	line := ""
 	if len(m.response.Results) > 0 {
-		line += fmt.Sprintf("  (%d/%d)", matchCount, len(m.response.Results))
+		line = fmt.Sprintf("(%d/%d)", matchCount, len(m.response.Results))
 	}
 
-	hint := "select Filter dashboard or press / to edit"
+	hint := "press / to search"
+
 	if m.mode == inputStatusFilter {
+		line = "Search: " + value
 		hint = "enter/esc done • backspace clears"
 	}
 
@@ -847,11 +916,15 @@ func statusSnapshotMatches(snapshot status.Snapshot, query string) bool {
 }
 
 func (m model) footerLine(_, _ int) string {
-	parts := make([]string, 0, 4)
+	parts := []string{}
 
 	filtered := m.filteredStatusResults()
 	if len(filtered) > 0 && !m.inspect {
 		parts = append(parts, fmt.Sprintf("provider %d/%d", m.selectedStatus+1, len(filtered)))
+	}
+
+	if m.loading && m.loadingTotal > 0 {
+		parts = append(parts, fmt.Sprintf("loaded %d/%d", len(m.response.Results), m.loadingTotal))
 	}
 
 	if !m.lastRefreshed.IsZero() {
@@ -969,7 +1042,6 @@ func (m model) sidebarItems() []sidebarItem {
 
 	items = append(items,
 		sidebarItem{kind: sidebarAction, id: actionRefreshDashboard},
-		sidebarItem{kind: sidebarAction, id: actionFilterDashboard},
 		sidebarItem{kind: sidebarAction, id: actionNewDashboard},
 		sidebarItem{kind: sidebarAction, id: actionRenameDashboard},
 		sidebarItem{kind: sidebarAction, id: actionDeleteDashboard},
@@ -1048,16 +1120,6 @@ func (m model) actionLabel(action string) string {
 	switch action {
 	case actionRefreshDashboard:
 		return "(R)efresh dashboard"
-	case actionFilterDashboard:
-		if m.mode == inputStatusFilter {
-			return "Filter: " + m.statusFind + "_"
-		}
-
-		if strings.TrimSpace(m.statusFind) != "" {
-			return "Filter: " + m.statusFind
-		}
-
-		return "Filter dashboard"
 	case actionNewDashboard:
 		return "(c)reate dashboard"
 	case actionRenameDashboard:
@@ -1065,7 +1127,7 @@ func (m model) actionLabel(action string) string {
 	case actionDeleteDashboard:
 		return "(d)elete dashboard"
 	case actionSetDefaultDashboard:
-		return "(s)et dashboard default"
+		return "(s)et as default dashboard"
 	case actionToggleProviderGrouping:
 		if m.providerListMode == providerListCategory {
 			return "Providers: category"
@@ -1168,10 +1230,6 @@ func (m model) activateSidebarAction(action string) (tea.Model, tea.Cmd) {
 		m.err = nil
 
 		return m, m.forceRefresh()
-	case actionFilterDashboard:
-		m = m.startStatusFilter()
-
-		return m, nil
 	case actionNewDashboard:
 		m.mode = inputDashboardCreate
 		m.createName = ""
@@ -1341,7 +1399,7 @@ func (m model) refreshWithCache(forceRefresh bool) tea.Cmd {
 			}
 		}
 
-		response, checkErr := app.CheckProviders(m.ctx, m.registry, providerIDs, app.StatusOptions{
+		results, streamErr := app.StreamProviders(m.ctx, m.registry, providerIDs, app.StatusOptions{
 			Details:       includeDetails,
 			Cache:         m.cache,
 			CacheTTL:      statusCacheTTL,
@@ -1349,17 +1407,62 @@ func (m model) refreshWithCache(forceRefresh bool) tea.Cmd {
 			ForceRefresh:  forceRefresh,
 			Logger:        m.logger,
 		})
+		if streamErr != nil {
+			return refreshMsg{dashboard: dashboard, dashboardNames: dashboardNames, defaultDashboard: defaultDashboard, err: streamErr}
+		}
 
-		return refreshMsg{
+		return refreshStartedMsg{
+			refreshID:        time.Now().UnixNano(),
 			providerIDs:      providerIDs,
 			dashboard:        dashboard,
 			dashboardNames:   dashboardNames,
 			defaultDashboard: defaultDashboard,
 			detailsLoaded:    includeDetails,
-			response:         response,
-			err:              checkErr,
+			results:          results,
 		}
 	}
+}
+
+func waitForProviderStatus(refreshID int64, results <-chan app.ProviderStatusResult) tea.Cmd {
+	return func() tea.Msg {
+		result, ok := <-results
+		if !ok {
+			return providerStatusMsg{refreshID: refreshID, result: app.ProviderStatusResult{Done: true}}
+		}
+
+		return providerStatusMsg{refreshID: refreshID, result: result, results: results}
+	}
+}
+
+func upsertOrderedSnapshot(results []status.Snapshot, snapshot status.Snapshot, providerIDs []string) []status.Snapshot {
+	updated := make([]status.Snapshot, 0, len(results)+1)
+	replaced := false
+
+	for _, item := range results {
+		if item.ProviderID == snapshot.ProviderID {
+			updated = append(updated, snapshot)
+			replaced = true
+
+			continue
+		}
+
+		updated = append(updated, item)
+	}
+
+	if !replaced {
+		updated = append(updated, snapshot)
+	}
+
+	order := make(map[string]int, len(providerIDs))
+	for idx, providerID := range providerIDs {
+		order[providerID] = idx
+	}
+
+	sort.SliceStable(updated, func(i, j int) bool {
+		return order[updated[i].ProviderID] < order[updated[j].ProviderID]
+	})
+
+	return updated
 }
 
 func mutateConfig(configPath, dashboard string, refresh bool, mutate func(*config.Config) error) tea.Cmd {
@@ -1877,7 +1980,7 @@ func (m model) bodyHeight() int {
 }
 
 func (m model) mainVisibleHeight(height, scroll int) int {
-	if m.inspect || m.loading || len(m.response.Results) == 0 {
+	if m.inspect || len(m.response.Results) == 0 {
 		return height
 	}
 

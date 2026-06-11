@@ -178,7 +178,7 @@ func TestGridLinesShowsDashboardFilterBar(t *testing.T) {
 	}
 
 	joined := strings.Join(m.gridLines(), "\n")
-	for _, want := range []string{"Filter: slack_", "(1/2)", "Slack"} {
+	for _, want := range []string{"Search: slack_", "Slack"} {
 		if !strings.Contains(joined, want) {
 			t.Fatalf("gridLines() missing %q:\n%s", want, joined)
 		}
