@@ -1,4 +1,4 @@
-.PHONY: help build dev test lint fmt check install release-snapshot clean
+.PHONY: help build run test lint fmt install release-snapshot clean
 
 APP := tuip
 MAIN := ./cmd/tuip
@@ -12,7 +12,7 @@ build: ## Build the tuip binary into ./bin/tuip
 	@mkdir -p $(BIN_DIR)
 	go build -o $(BIN) $(MAIN)
 
-dev: ## Run tuip from source with ARGS="..."
+run: ## Run tuip from source with ARGS="..."
 	go run $(MAIN) $(ARGS)
 
 install: ## Install tuip with go install
@@ -26,8 +26,6 @@ lint: ## Run golangci-lint
 
 fmt: ## Format Go files with golangci-lint formatters
 	golangci-lint fmt
-
-check: fmt lint test ## Format, lint, and test final code
 
 release-snapshot: ## Build a local GoReleaser snapshot into ./dist
 	goreleaser release --snapshot --clean
