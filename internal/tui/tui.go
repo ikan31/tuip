@@ -157,29 +157,30 @@ type sidebarRow struct {
 }
 
 type model struct {
-	ctx                context.Context //nolint:containedctx // Bubble Tea commands need app context across updates.
-	registry           *providers.Registry
-	configPath         string
-	cache              *statuscache.Cache
-	logger             *slog.Logger
-	providerIDs        []string
-	dashboard          string
-	dashboardNames     []string
-	defaultDashboard   string
-	response           status.Response
-	loading            bool
-	err                error
-	lastRefreshed      time.Time
-	width              int
-	height             int
-	statusScroll       int
-	detailScroll       int
-	detailsLoaded      bool
-	inspect            bool
-	selectedStatus     int
-	selectedProviderID string
-	activeRefreshID    int64
-	loadingTotal       int
+	ctx                    context.Context //nolint:containedctx // Bubble Tea commands need app context across updates.
+	registry               *providers.Registry
+	configPath             string
+	cache                  *statuscache.Cache
+	logger                 *slog.Logger
+	providerIDs            []string
+	dashboard              string
+	dashboardNames         []string
+	defaultDashboard       string
+	response               status.Response
+	loading                bool
+	err                    error
+	lastRefreshed          time.Time
+	width                  int
+	height                 int
+	statusScroll           int
+	detailScroll           int
+	preInspectStatusScroll int
+	detailsLoaded          bool
+	inspect                bool
+	selectedStatus         int
+	selectedProviderID     string
+	activeRefreshID        int64
+	loadingTotal           int
 
 	focus            focusArea
 	mode             inputMode
@@ -470,7 +471,7 @@ func (m model) updateKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case keyEsc, keyEnter:
 			m.inspect = false
-			m.statusScroll = m.scrollForSelectedStatus()
+			m.statusScroll = clamp(m.preInspectStatusScroll, 0, m.statusMaxScroll())
 
 			return m, nil
 		case "ctrl+c":
@@ -600,6 +601,7 @@ func (m model) openSelectedStatusDetails() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
+	m.preInspectStatusScroll = m.statusScroll
 	m.inspect = true
 
 	m.detailScroll = 0
