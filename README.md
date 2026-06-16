@@ -4,7 +4,7 @@
 
 `tuip` is a CLI and TUI tool for checking public SaaS status pages.
 
-![Demo of the app](docs/demo.webp)
+![Demo of the app](docs/assets/demo.webp)
 
 ## Features
 
