@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -292,7 +293,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.detailsLoaded = msg.detailsLoaded
 		m.err = msg.err
 		m.lastRefreshed = time.Now().UTC()
-		m.syncSelectedStatus()
+		m = m.syncSelectedStatus()
 		m.statusScroll = m.clampedStatusScroll()
 		m.detailScroll = m.clampedDetailScroll()
 		m.sidebarIndex = m.clampedSidebarIndex()
@@ -312,7 +313,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.response = status.Response{CheckedAt: time.Now().UTC(), Results: placeholderSnapshots(m.registry, msg.providerIDs)}
 		m.detailsLoaded = msg.detailsLoaded
 		m.err = nil
-		m.syncSelectedStatus()
+		m = m.syncSelectedStatus()
 		m.statusScroll = m.clampedStatusScroll()
 		m.detailScroll = m.clampedDetailScroll()
 		m.sidebarIndex = m.clampedSidebarIndex()
@@ -329,7 +330,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.loadingTotal = 0
 			m.err = msg.result.Err
 			m.lastRefreshed = time.Now().UTC()
-			m.syncSelectedStatus()
+			m = m.syncSelectedStatus()
 			m.statusScroll = m.clampedStatusScroll()
 
 			return m, nil
@@ -342,7 +343,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.err = errors.New("one or more providers failed")
 		}
 
-		m.syncSelectedStatus()
+		m = m.syncSelectedStatus()
 		m.statusScroll = m.clampedStatusScroll()
 
 		return m, waitForProviderStatus(msg.refreshID, msg.results)
@@ -387,7 +388,7 @@ func (m model) updateInput(msg tea.KeyMsg) (model, tea.Cmd, bool) {
 			}
 		}
 
-		m.syncSelectedStatus()
+		m = m.syncSelectedStatus()
 		m.statusScroll = m.scrollForSelectedStatus()
 
 		return m, nil, true
@@ -573,19 +574,19 @@ func (m model) updateStatusKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if currentIndex%columns == 0 {
 			m.focus = focusSidebar
 		} else {
-			m.setSelectedStatusIndex(currentIndex - 1)
+			m = m.setSelectedStatusIndex(currentIndex - 1)
 			m.statusScroll = m.scrollForSelectedStatus()
 		}
 	case "right", "l":
-		m.setSelectedStatusIndex(currentIndex + 1)
+		m = m.setSelectedStatusIndex(currentIndex + 1)
 		m.statusScroll = m.scrollForSelectedStatus()
 	case keyEnter:
 		return m.openSelectedStatusDetails()
 	case "up", "k":
-		m.setSelectedStatusIndex(currentIndex - columns)
+		m = m.setSelectedStatusIndex(currentIndex - columns)
 		m.statusScroll = m.scrollForSelectedStatus()
 	case keyDown, "j":
-		m.setSelectedStatusIndex(currentIndex + columns)
+		m = m.setSelectedStatusIndex(currentIndex + columns)
 		m.statusScroll = m.scrollForSelectedStatus()
 	}
 
@@ -1289,7 +1290,7 @@ func (m model) startStatusFilter() model {
 	m.mode = inputStatusFilter
 	m.focus = focusStatus
 	m.inspect = false
-	m.syncSelectedStatus()
+	m = m.syncSelectedStatus()
 	m.statusScroll = m.scrollForSelectedStatus()
 
 	return m
@@ -1472,6 +1473,7 @@ func isLoadingSnapshot(snapshot status.Snapshot) bool {
 
 func loadedStatusCount(results []status.Snapshot) int {
 	count := 0
+
 	for _, snapshot := range results {
 		if !isLoadingSnapshot(snapshot) {
 			count++
@@ -2215,12 +2217,12 @@ func (m model) selectedStatusIndex() int {
 	return clamp(m.selectedStatus, 0, len(results)-1)
 }
 
-func (m *model) syncSelectedStatus() {
+func (m model) syncSelectedStatus() model {
 	results := m.filteredStatusResults()
 	if len(results) == 0 {
 		m.selectedStatus = 0
 
-		return
+		return m
 	}
 
 	if m.selectedProviderID != "" {
@@ -2228,46 +2230,45 @@ func (m *model) syncSelectedStatus() {
 			if snapshot.ProviderID == m.selectedProviderID {
 				m.selectedStatus = idx
 
-				return
+				return m
 			}
 		}
 
 		if m.loading && containsString(m.providerIDs, m.selectedProviderID) {
 			m.selectedStatus = clamp(m.selectedStatus, 0, len(results)-1)
 
-			return
+			return m
 		}
 	}
 
 	m.selectedStatus = clamp(m.selectedStatus, 0, len(results)-1)
 	m.selectedProviderID = results[m.selectedStatus].ProviderID
+
+	return m
 }
 
 func containsString(items []string, target string) bool {
-	for _, item := range items {
-		if item == target {
-			return true
-		}
-	}
-
-	return false
+	return slices.Contains(items, target)
 }
 
-func (m *model) setSelectedStatusIndex(index int) {
+func (m model) setSelectedStatusIndex(index int) model {
 	results := m.filteredStatusResults()
 	if len(results) == 0 {
 		m.selectedStatus = 0
 		m.selectedProviderID = ""
 
-		return
+		return m
 	}
 
 	m.selectedStatus = clamp(index, 0, len(results)-1)
 	m.selectedProviderID = results[m.selectedStatus].ProviderID
+
+	return m
 }
 
 func renderGridCard(snapshot status.Snapshot, width, height int, selected bool) string {
 	loading := isLoadingSnapshot(snapshot)
+
 	color := stateColor(snapshot.State)
 	if selected {
 		color = lipgloss.Color("205")
@@ -2282,12 +2283,13 @@ func renderGridCard(snapshot status.Snapshot, width, height int, selected bool) 
 
 	nameLines := wrapText(snapshot.Name, max(minSidebarContentWidth, width-gridCardNamePadding))
 
-	if selected {
+	switch {
+	case selected:
 		name := wrapWithPrefix(snapshot.Name, "› ", "  ", max(minSidebarContentWidth, width-gridCardHorizontalPadding))
 		nameLines = strings.Split(selectedStyle.Render(name), "\n")
-	} else if loading {
+	case loading:
 		nameLines = strings.Split(subtleStyle.Render(strings.Join(nameLines, "\n")), "\n")
-	} else {
+	default:
 		nameLines = strings.Split(lipgloss.NewStyle().Bold(true).Render(strings.Join(nameLines, "\n")), "\n")
 	}
 

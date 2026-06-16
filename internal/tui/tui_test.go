@@ -128,12 +128,15 @@ func TestPlaceholderSnapshotsFillDashboardWhileLoading(t *testing.T) {
 	t.Parallel()
 
 	registry := providers.NewRegistry()
+
 	for _, metadata := range []providers.Metadata{
 		{ID: "1password", Name: "1Password", SourceURL: "https://status.1password.com"},
 		{ID: "slack", Name: "Slack", SourceURL: "https://status.slack.com"},
 	} {
 		item := metadata
-		if err := registry.Register(item, func() providers.Provider { return staticMetadataProvider{metadata: item} }); err != nil {
+
+		err := registry.Register(item, func() providers.Provider { return staticMetadataProvider{metadata: item} })
+		if err != nil {
 			t.Fatalf("Register() error = %v", err)
 		}
 	}
@@ -163,13 +166,14 @@ func TestSelectedProviderIDSurvivesEarlierStreamingResult(t *testing.T) {
 	}
 
 	m.response.Results = upsertOrderedSnapshot(m.response.Results, status.Snapshot{ProviderID: "1password", Name: "1Password", State: status.StateOperational}, providerIDs)
-	m.syncSelectedStatus()
+	m = m.syncSelectedStatus()
+
 	if m.selectedProviderID != "slack" {
 		t.Fatalf("selection changed while selected provider was still pending: %q", m.selectedProviderID)
 	}
 
 	m.response.Results = upsertOrderedSnapshot(m.response.Results, status.Snapshot{ProviderID: "slack", Name: "Slack", State: status.StateOperational}, providerIDs)
-	m.syncSelectedStatus()
+	m = m.syncSelectedStatus()
 
 	if m.selectedProviderID != "slack" || m.selectedStatus != 1 {
 		t.Fatalf("selection = %q at %d, want slack at 1", m.selectedProviderID, m.selectedStatus)
