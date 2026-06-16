@@ -38,13 +38,8 @@ const (
 	minSidebarContentWidth    = 8
 	mainBorderHorizontalSize  = 6
 	statusIncidentLimit       = 10
-	statusSummaryLimit        = 120
-	cloudflareRegionLimit     = 8
-	cloudflareCountryLimit    = 14
-	serviceComponentLimit     = 10
 	loadingStatusSummary      = "Loading status…"
 	minimumSplitParts         = 2
-	nonOperationalDetailLimit = 30
 	componentDisplayLimit     = 20
 	defaultSidebarWidth       = 32
 	maxFallbackMainWidth      = 80
@@ -755,13 +750,7 @@ func (m model) renderSidebarItem(idx int, item sidebarItem) string {
 
 func (m model) renderMain(height, scroll int) string {
 	bodyLines := m.bodyLines()
-
-	visibleHeight := m.mainVisibleHeight(height, scroll)
-
-	visibleBody := sliceLines(bodyLines, scroll, visibleHeight)
-	if m.inspect {
-		visibleBody = truncateLines(visibleBody, max(minSidebarContentWidth, m.mainWidth()-mainBorderHorizontalSize))
-	}
+	visibleBody := m.visibleMainBodyLines(bodyLines, height, scroll)
 
 	for len(visibleBody) < height {
 		visibleBody = append(visibleBody, "")
@@ -837,6 +826,41 @@ func (m model) gridLines() []string {
 	return rows
 }
 
+func (m model) visibleMainBodyLines(bodyLines []string, height, scroll int) []string {
+	if m.stickyStatusFilter() {
+		return m.stickyStatusBodyLines(bodyLines, height, scroll)
+	}
+
+	visibleHeight := m.mainVisibleHeight(height, scroll)
+
+	return sliceLines(bodyLines, scroll, visibleHeight)
+}
+
+func (m model) stickyStatusFilter() bool {
+	return !m.inspect && len(m.response.Results) > 0 && (m.mode == inputStatusFilter || strings.TrimSpace(m.statusFind) != "")
+}
+
+func (m model) stickyStatusBodyLines(bodyLines []string, height, scroll int) []string {
+	filterLines := m.statusFilterLines(len(m.filteredStatusResults()))
+	if height <= len(filterLines) {
+		return sliceLines(filterLines, 0, height)
+	}
+
+	bodyScroll := max(scroll, m.gridStartLine())
+	visibleHeight := m.stickyStatusGridVisibleHeight(height - len(filterLines))
+	visibleBody := append([]string{}, filterLines...)
+
+	return append(visibleBody, sliceLines(bodyLines, bodyScroll, visibleHeight)...)
+}
+
+func (m model) stickyStatusGridVisibleHeight(height int) int {
+	if len(m.filteredStatusResults()) == 0 {
+		return height
+	}
+
+	return min(height, m.visibleGridRowsForHeight(height)*m.gridRowStride()-1)
+}
+
 func (m model) statusFilterLines(matchCount int) []string {
 	query := strings.TrimSpace(m.statusFind)
 
@@ -852,6 +876,10 @@ func (m model) statusFilterLines(matchCount int) []string {
 	line := ""
 	if len(m.response.Results) > 0 {
 		line = fmt.Sprintf("(%d/%d)", matchCount, len(m.response.Results))
+	}
+
+	if query != "" {
+		line = strings.TrimSpace(line + " Search: " + query)
 	}
 
 	hint := "press / to search"
@@ -1586,6 +1614,10 @@ func resolveDashboardProviderIDs(configPath string, registry *providers.Registry
 	return providerIDs, activeDashboard, dashboardNames, cfg.DefaultDashboard, nil
 }
 
+func (m model) detailLineWidth() int {
+	return max(minSidebarContentWidth, m.mainWidth()-mainBorderHorizontalSize)
+}
+
 func (m model) inspectLines() []string {
 	results := m.filteredStatusResults()
 	if len(results) == 0 {
@@ -1617,7 +1649,7 @@ func (m model) inspectLines() []string {
 	lines = append(lines, detailLines(snapshot)...)
 	lines = append(lines, "", subtleStyle.Render("enter/esc closes details • ctrl+c quits"))
 
-	return lines
+	return wrapDetailLines(lines, m.detailLineWidth())
 }
 
 func detailLines(snapshot status.Snapshot) []string {
@@ -1650,7 +1682,7 @@ func detailLines(snapshot status.Snapshot) []string {
 
 			lines = append(lines, fmt.Sprintf("  - %s: %s", label, name))
 			if incident.Summary != "" {
-				lines = append(lines, "    "+truncate(incident.Summary, statusSummaryLimit))
+				lines = append(lines, "    "+incident.Summary)
 			}
 
 			if incident.URL != "" {
@@ -1695,17 +1727,17 @@ func cloudflareDetailLines(snapshot status.Snapshot) []string {
 	regions, countries, services := cloudflareImpact(affected)
 	if len(regions) > 0 {
 		lines = append(lines, "", "Affected regions:")
-		lines = append(lines, formatNamedCounts(regions, cloudflareRegionLimit)...)
+		lines = append(lines, formatNamedCounts(regions, len(regions))...)
 	}
 
 	if len(countries) > 0 {
 		lines = append(lines, "", "Affected countries/areas:")
-		lines = append(lines, formatCloudflareCountries(countries, cloudflareCountryLimit)...)
+		lines = append(lines, formatCloudflareCountries(countries, len(countries))...)
 	}
 
 	if len(services) > 0 {
 		lines = append(lines, "", "Affected Cloudflare services:")
-		lines = append(lines, formatComponents(services, serviceComponentLimit)...)
+		lines = append(lines, formatComponents(services, len(services))...)
 	}
 
 	if snapshot.SourceURL != "" {
@@ -1787,7 +1819,7 @@ func componentLines(components []status.Component) []string {
 	lines := []string{fmt.Sprintf("Components: %d total (%s)", len(components), componentCountSummary(counts))}
 	if len(nonOperational) > 0 {
 		lines = append(lines, fmt.Sprintf("Affected components: %d", len(nonOperational)))
-		lines = append(lines, formatComponents(nonOperational, nonOperationalDetailLimit)...)
+		lines = append(lines, formatComponents(nonOperational, len(nonOperational))...)
 
 		return lines
 	}
@@ -2356,6 +2388,100 @@ func trimLastRune(value string) string {
 	return string(runes[:len(runes)-1])
 }
 
+func wrapDetailLines(lines []string, width int) []string {
+	wrapped := make([]string, 0, len(lines))
+
+	for _, line := range lines {
+		if strings.Contains(line, "\x1b[") {
+			wrapped = append(wrapped, line)
+
+			continue
+		}
+
+		wrapped = append(wrapped, wrapIndentedLine(line, width)...)
+	}
+
+	return wrapped
+}
+
+func wrapIndentedLine(line string, width int) []string {
+	if width <= 0 || line == "" || runeLen(line) <= width {
+		return []string{line}
+	}
+
+	indent := leadingWhitespace(line)
+	content := strings.TrimSpace(line)
+
+	continuationPrefix := indent
+	if strings.HasPrefix(content, "- ") {
+		continuationPrefix = indent + "  "
+	}
+
+	return wrapTextWithPrefixes(content, indent, continuationPrefix, width)
+}
+
+func leadingWhitespace(value string) string {
+	for idx, char := range value {
+		if char != ' ' && char != '\t' {
+			return value[:idx]
+		}
+	}
+
+	return value
+}
+
+func wrapTextWithPrefixes(value, firstPrefix, nextPrefix string, width int) []string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return []string{firstPrefix}
+	}
+
+	lines := make([]string, 0)
+	prefix := firstPrefix
+	current := ""
+	contentWidth := max(1, width-runeLen(prefix))
+
+	for word := range strings.FieldsSeq(value) {
+		for runeLen(word) > contentWidth {
+			if current != "" {
+				lines = append(lines, prefix+current)
+				prefix = nextPrefix
+				contentWidth = max(1, width-runeLen(prefix))
+				current = ""
+			}
+
+			part, rest := splitRunes(word, contentWidth)
+			lines = append(lines, prefix+part)
+			prefix = nextPrefix
+			contentWidth = max(1, width-runeLen(prefix))
+			word = rest
+		}
+
+		if current == "" {
+			current = word
+
+			continue
+		}
+
+		if runeLen(current)+1+runeLen(word) <= contentWidth {
+			current += " " + word
+
+			continue
+		}
+
+		lines = append(lines, prefix+current)
+		prefix = nextPrefix
+		contentWidth = max(1, width-runeLen(prefix))
+		current = word
+	}
+
+	if current != "" {
+		lines = append(lines, prefix+current)
+	}
+
+	return lines
+}
+
 func wrapWithPrefix(value, firstPrefix, nextPrefix string, width int) string {
 	wrapped := wrapText(value, width)
 	for idx, line := range wrapped {
@@ -2431,25 +2557,6 @@ func splitRunes(value string, width int) (string, string) {
 
 func runeLen(value string) int {
 	return len([]rune(value))
-}
-
-func truncateLines(lines []string, width int) []string {
-	truncated := make([]string, len(lines))
-	for idx, line := range lines {
-		truncated[idx] = truncate(line, width)
-	}
-
-	return truncated
-}
-
-func truncate(value string, width int) string {
-	if width <= 1 || len([]rune(value)) <= width {
-		return value
-	}
-
-	runes := []rune(value)
-
-	return string(runes[:width-1]) + "…"
 }
 
 func logDebug(logger *slog.Logger, message string, attrs ...any) {

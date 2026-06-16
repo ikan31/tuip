@@ -3,6 +3,7 @@ package tui
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -304,6 +305,73 @@ func TestGridLinesShowsDashboardFilterBar(t *testing.T) {
 	}
 }
 
+func TestStatusFilterLineStaysVisibleWhileFilteringScrolledGrid(t *testing.T) {
+	t.Parallel()
+
+	results := make([]status.Snapshot, 30)
+	for idx := range results {
+		results[idx] = status.Snapshot{
+			ProviderID: fmt.Sprintf("provider-%02d", idx),
+			Name:       fmt.Sprintf("Alpha Provider %02d", idx),
+			State:      status.StateOperational,
+		}
+	}
+
+	m := model{
+		width:          100,
+		height:         20,
+		focus:          focusStatus,
+		mode:           inputStatusFilter,
+		statusFind:     "a",
+		selectedStatus: len(results) - 1,
+		response:       status.Response{Results: results},
+	}
+
+	m.statusScroll = m.scrollForSelectedStatus()
+	if m.statusScroll == 0 {
+		t.Fatal("test setup expected scrolled status grid")
+	}
+
+	rendered := m.renderMain(m.bodyHeight(), m.statusScroll)
+	if !strings.Contains(rendered, "Search: a_") {
+		t.Fatalf("renderMain() hid active search line while scrolled:\n%s", rendered)
+	}
+}
+
+func TestStatusFilterLineStaysVisibleWhenFilterIsApplied(t *testing.T) {
+	t.Parallel()
+
+	results := make([]status.Snapshot, 30)
+	for idx := range results {
+		results[idx] = status.Snapshot{
+			ProviderID: fmt.Sprintf("provider-%02d", idx),
+			Name:       fmt.Sprintf("Alpha Provider %02d", idx),
+			State:      status.StateOperational,
+		}
+	}
+
+	m := model{
+		width:          100,
+		height:         20,
+		focus:          focusStatus,
+		statusFind:     "a",
+		selectedStatus: len(results) - 1,
+		response:       status.Response{Results: results},
+	}
+
+	m.statusScroll = m.scrollForSelectedStatus()
+	if m.statusScroll == 0 {
+		t.Fatal("test setup expected scrolled status grid")
+	}
+
+	rendered := m.renderMain(m.bodyHeight(), m.statusScroll)
+	for _, want := range []string{"(30/30)", "Search: a", "press / to search"} {
+		if !strings.Contains(rendered, want) {
+			t.Fatalf("renderMain() hid applied filter detail %q while scrolled:\n%s", want, rendered)
+		}
+	}
+}
+
 func TestStatusScrollCanHideErrorPrefixToShowFullCardRows(t *testing.T) {
 	t.Parallel()
 
@@ -362,6 +430,79 @@ func TestCloudflareCountry(t *testing.T) {
 				t.Fatalf("cloudflareCountry(%q) = %q, %t; want %q, %t", tt.name, got, ok, tt.want, tt.ok)
 			}
 		})
+	}
+}
+
+func TestInspectLinesWrapLongDetailsWithoutTruncating(t *testing.T) {
+	t.Parallel()
+
+	m := model{
+		width:  76,
+		height: 24,
+		response: status.Response{Results: []status.Snapshot{
+			{
+				ProviderID: "elastic-cloud",
+				Name:       "Elastic Cloud",
+				State:      status.StateMajorOutage,
+				Summary:    "Partial System Outage",
+				Components: []status.Component{
+					{
+						Group:  "Azure Washington (azure-westus2) / Deployment orchestration (Create/Edit/Restart/Delete)",
+						Name:   "Azure azure-westus2 extremely long component name that should wrap instead of truncate",
+						Status: "degraded_performance",
+						State:  status.StateDegraded,
+					},
+				},
+			},
+		}},
+	}
+
+	lines := m.inspectLines()
+	joined := strings.Join(lines, "\n")
+
+	for _, want := range []string{"Create/Edit/Restart/Delete", "extremely long", "component name", "degraded_performance"} {
+		if !strings.Contains(joined, want) {
+			t.Fatalf("inspectLines() missing %q:\n%s", want, joined)
+		}
+	}
+
+	for _, line := range lines {
+		if strings.Contains(line, "\x1b[") {
+			continue
+		}
+
+		if runeLen(line) > m.detailLineWidth() {
+			t.Fatalf("detail line width = %d, want <= %d: %q", runeLen(line), m.detailLineWidth(), line)
+		}
+	}
+}
+
+func TestCloudflareDetailLinesShowsAllAffectedCountries(t *testing.T) {
+	t.Parallel()
+
+	components := make([]status.Component, 0, 16)
+	for idx := range 16 {
+		components = append(components, status.Component{
+			Name:   fmt.Sprintf("City %02d, Country %02d - (C%02d)", idx, idx, idx),
+			Group:  "Test Region",
+			Status: "under_maintenance",
+			State:  status.StateMaintenance,
+		})
+	}
+
+	snapshot := status.Snapshot{
+		ProviderID: "cloudflare",
+		Name:       "Cloudflare",
+		Components: components,
+	}
+
+	joined := strings.Join(cloudflareDetailLines(snapshot), "\n")
+	if strings.Contains(joined, "more") {
+		t.Fatalf("cloudflare details should show all affected countries, got:\n%s", joined)
+	}
+
+	if !strings.Contains(joined, "Country 15") {
+		t.Fatalf("cloudflare details missing final affected country:\n%s", joined)
 	}
 }
 
