@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/ikan31/tuip/internal/providers"
 	"github.com/ikan31/tuip/internal/status"
 )
@@ -177,6 +178,53 @@ func TestSelectedProviderIDSurvivesEarlierStreamingResult(t *testing.T) {
 
 	if m.selectedProviderID != "slack" || m.selectedStatus != 1 {
 		t.Fatalf("selection = %q at %d, want slack at 1", m.selectedProviderID, m.selectedStatus)
+	}
+}
+
+func TestClosingDetailsRestoresDashboardScroll(t *testing.T) {
+	t.Parallel()
+
+	results := make([]status.Snapshot, 30)
+	for idx := range results {
+		results[idx] = status.Snapshot{ProviderID: "provider", Name: "Provider", State: status.StateOperational}
+	}
+
+	m := model{
+		width:          100,
+		height:         20,
+		focus:          focusStatus,
+		detailsLoaded:  true,
+		selectedStatus: len(results) - 1,
+		response:       status.Response{Results: results},
+	}
+	m.statusScroll = m.scrollForSelectedStatus()
+	wantScroll := m.statusScroll
+
+	updated, _ := m.openSelectedStatusDetails()
+
+	updatedModel, ok := updated.(model)
+	if !ok {
+		t.Fatalf("openSelectedStatusDetails() returned %T, want model", updated)
+	}
+
+	m = updatedModel
+	m.statusScroll = 0
+
+	updated, _ = m.updateKey(tea.KeyMsg{Type: tea.KeyEsc})
+
+	updatedModel, ok = updated.(model)
+	if !ok {
+		t.Fatalf("updateKey() returned %T, want model", updated)
+	}
+
+	m = updatedModel
+
+	if m.inspect {
+		t.Fatal("details view still open after esc")
+	}
+
+	if m.statusScroll != wantScroll {
+		t.Fatalf("statusScroll = %d, want restored scroll %d", m.statusScroll, wantScroll)
 	}
 }
 
