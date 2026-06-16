@@ -67,6 +67,16 @@ func pagerDutyStatusRegistrations(client *fetch.Client) []registration {
 			DataURL:     "https://au.githubstatus.com/api/data",
 		},
 		{
+			ID:          "github-enterprise-cloud-eu",
+			Aliases:     []string{"github-eu", "ghec-eu"},
+			Name:        "GitHub Enterprise Cloud - Europe",
+			Description: "GitHub Enterprise Cloud Europe regional status",
+			Category:    "Developer Tools",
+			SourceURL:   "https://eu.githubstatus.com/",
+			APIURL:      "https://eu.githubstatus.com/api/data",
+			DataURL:     "https://eu.githubstatus.com/api/data",
+		},
+		{
 			ID:          "github-enterprise-cloud-jp",
 			Aliases:     []string{"github-jp", "ghec-jp"},
 			Name:        "GitHub Enterprise Cloud - Japan",
@@ -170,16 +180,6 @@ func statuspageRegistrations(client *fetch.Client) []registration {
 			SourceURL:   "https://www.githubstatus.com/#",
 			APIURL:      "https://www.githubstatus.com/api/v2/summary.json",
 			SummaryURL:  "https://www.githubstatus.com/api/v2/summary.json",
-		},
-		{
-			ID:          "github-enterprise-cloud-eu",
-			Aliases:     []string{"github-eu", "ghec-eu"},
-			Name:        "GitHub Enterprise Cloud - EU",
-			Description: "GitHub Enterprise Cloud EU regional status",
-			Category:    "Developer Tools",
-			SourceURL:   "https://eu.githubstatus.com/",
-			APIURL:      "https://eu.githubstatus.com/api/v2/summary.json",
-			SummaryURL:  "https://eu.githubstatus.com/api/v2/summary.json",
 		},
 		{
 			ID:          "accelo",

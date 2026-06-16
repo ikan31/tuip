@@ -41,6 +41,7 @@ const (
 	cloudflareRegionLimit     = 8
 	cloudflareCountryLimit    = 14
 	serviceComponentLimit     = 10
+	loadingStatusSummary      = "Loading status…"
 	minimumSplitParts         = 2
 	nonOperationalDetailLimit = 30
 	componentDisplayLimit     = 20
@@ -155,28 +156,29 @@ type sidebarRow struct {
 }
 
 type model struct {
-	ctx              context.Context //nolint:containedctx // Bubble Tea commands need app context across updates.
-	registry         *providers.Registry
-	configPath       string
-	cache            *statuscache.Cache
-	logger           *slog.Logger
-	providerIDs      []string
-	dashboard        string
-	dashboardNames   []string
-	defaultDashboard string
-	response         status.Response
-	loading          bool
-	err              error
-	lastRefreshed    time.Time
-	width            int
-	height           int
-	statusScroll     int
-	detailScroll     int
-	detailsLoaded    bool
-	inspect          bool
-	selectedStatus   int
-	activeRefreshID  int64
-	loadingTotal     int
+	ctx                context.Context //nolint:containedctx // Bubble Tea commands need app context across updates.
+	registry           *providers.Registry
+	configPath         string
+	cache              *statuscache.Cache
+	logger             *slog.Logger
+	providerIDs        []string
+	dashboard          string
+	dashboardNames     []string
+	defaultDashboard   string
+	response           status.Response
+	loading            bool
+	err                error
+	lastRefreshed      time.Time
+	width              int
+	height             int
+	statusScroll       int
+	detailScroll       int
+	detailsLoaded      bool
+	inspect            bool
+	selectedStatus     int
+	selectedProviderID string
+	activeRefreshID    int64
+	loadingTotal       int
 
 	focus            focusArea
 	mode             inputMode
@@ -290,7 +292,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.detailsLoaded = msg.detailsLoaded
 		m.err = msg.err
 		m.lastRefreshed = time.Now().UTC()
-		m.selectedStatus = m.clampedStatusIndex()
+		m.syncSelectedStatus()
 		m.statusScroll = m.clampedStatusScroll()
 		m.detailScroll = m.clampedDetailScroll()
 		m.sidebarIndex = m.clampedSidebarIndex()
@@ -307,10 +309,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.dashboard = msg.dashboard
 		m.dashboardNames = msg.dashboardNames
 		m.defaultDashboard = msg.defaultDashboard
-		m.response = status.Response{CheckedAt: time.Now().UTC(), Results: []status.Snapshot{}}
+		m.response = status.Response{CheckedAt: time.Now().UTC(), Results: placeholderSnapshots(m.registry, msg.providerIDs)}
 		m.detailsLoaded = msg.detailsLoaded
 		m.err = nil
-		m.selectedStatus = m.clampedStatusIndex()
+		m.syncSelectedStatus()
 		m.statusScroll = m.clampedStatusScroll()
 		m.detailScroll = m.clampedDetailScroll()
 		m.sidebarIndex = m.clampedSidebarIndex()
@@ -327,7 +329,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.loadingTotal = 0
 			m.err = msg.result.Err
 			m.lastRefreshed = time.Now().UTC()
-			m.selectedStatus = m.clampedStatusIndex()
+			m.syncSelectedStatus()
 			m.statusScroll = m.clampedStatusScroll()
 
 			return m, nil
@@ -340,7 +342,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.err = errors.New("one or more providers failed")
 		}
 
-		m.selectedStatus = m.clampedStatusIndex()
+		m.syncSelectedStatus()
 		m.statusScroll = m.clampedStatusScroll()
 
 		return m, waitForProviderStatus(msg.refreshID, msg.results)
@@ -385,7 +387,7 @@ func (m model) updateInput(msg tea.KeyMsg) (model, tea.Cmd, bool) {
 			}
 		}
 
-		m.selectedStatus = m.clampedStatusIndex()
+		m.syncSelectedStatus()
 		m.statusScroll = m.scrollForSelectedStatus()
 
 		return m, nil, true
@@ -564,29 +566,26 @@ func (m model) updateStatusKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	columns := m.gridColumns()
+	currentIndex := m.selectedStatusIndex()
 
 	switch msg.String() {
 	case "left", "h":
-		if m.selectedStatus%columns == 0 {
+		if currentIndex%columns == 0 {
 			m.focus = focusSidebar
 		} else {
-			m.selectedStatus--
-			m.selectedStatus = m.clampedStatusIndex()
+			m.setSelectedStatusIndex(currentIndex - 1)
 			m.statusScroll = m.scrollForSelectedStatus()
 		}
 	case "right", "l":
-		m.selectedStatus++
-		m.selectedStatus = m.clampedStatusIndex()
+		m.setSelectedStatusIndex(currentIndex + 1)
 		m.statusScroll = m.scrollForSelectedStatus()
 	case keyEnter:
 		return m.openSelectedStatusDetails()
 	case "up", "k":
-		m.selectedStatus -= columns
-		m.selectedStatus = m.clampedStatusIndex()
+		m.setSelectedStatusIndex(currentIndex - columns)
 		m.statusScroll = m.scrollForSelectedStatus()
 	case keyDown, "j":
-		m.selectedStatus += columns
-		m.selectedStatus = m.clampedStatusIndex()
+		m.setSelectedStatusIndex(currentIndex + columns)
 		m.statusScroll = m.scrollForSelectedStatus()
 	}
 
@@ -818,8 +817,9 @@ func (m model) gridLines() []string {
 
 		cardHeight := m.gridCardHeight()
 
+		selectedIndex := m.selectedStatusIndex()
 		for idx := start; idx < end; idx++ {
-			selected := idx == m.selectedStatus && m.focus == focusStatus
+			selected := idx == selectedIndex && m.focus == focusStatus
 			cards = append(cards, renderGridCard(results[idx], m.gridCardWidth(), cardHeight, selected))
 		}
 
@@ -920,11 +920,11 @@ func (m model) footerLine(_, _ int) string {
 
 	filtered := m.filteredStatusResults()
 	if len(filtered) > 0 && !m.inspect {
-		parts = append(parts, fmt.Sprintf("provider %d/%d", m.selectedStatus+1, len(filtered)))
+		parts = append(parts, fmt.Sprintf("provider %d/%d", m.selectedStatusIndex()+1, len(filtered)))
 	}
 
 	if m.loading && m.loadingTotal > 0 {
-		parts = append(parts, fmt.Sprintf("loaded %d/%d", len(m.response.Results), m.loadingTotal))
+		parts = append(parts, fmt.Sprintf("loaded %d/%d", loadedStatusCount(m.response.Results), m.loadingTotal))
 	}
 
 	if !m.lastRefreshed.IsZero() {
@@ -1210,6 +1210,7 @@ func (m model) activateSidebarItem() (tea.Model, tea.Cmd) {
 		m.inspect = false
 		m.detailsLoaded = false
 		m.selectedStatus = 0
+		m.selectedProviderID = ""
 		m.statusScroll = 0
 		m.detailScroll = 0
 
@@ -1288,7 +1289,7 @@ func (m model) startStatusFilter() model {
 	m.mode = inputStatusFilter
 	m.focus = focusStatus
 	m.inspect = false
-	m.selectedStatus = m.clampedStatusIndex()
+	m.syncSelectedStatus()
 	m.statusScroll = m.scrollForSelectedStatus()
 
 	return m
@@ -1434,6 +1435,52 @@ func waitForProviderStatus(refreshID int64, results <-chan app.ProviderStatusRes
 	}
 }
 
+func placeholderSnapshots(registry *providers.Registry, providerIDs []string) []status.Snapshot {
+	snapshots := make([]status.Snapshot, 0, len(providerIDs))
+	checkedAt := time.Now().UTC()
+
+	for _, providerID := range providerIDs {
+		name := providerID
+		sourceURL := ""
+
+		if registry != nil {
+			if provider, ok := registry.Get(providerID); ok {
+				metadata := provider.Metadata()
+				name = metadata.Name
+				sourceURL = metadata.SourceURL
+			}
+		}
+
+		snapshots = append(snapshots, status.Snapshot{
+			ProviderID: providerID,
+			Name:       name,
+			State:      status.StateUnknown,
+			Summary:    loadingStatusSummary,
+			SourceURL:  sourceURL,
+			CheckedAt:  checkedAt,
+			Incidents:  []status.Incident{},
+			Components: []status.Component{},
+		})
+	}
+
+	return snapshots
+}
+
+func isLoadingSnapshot(snapshot status.Snapshot) bool {
+	return snapshot.Summary == loadingStatusSummary && snapshot.State == status.StateUnknown
+}
+
+func loadedStatusCount(results []status.Snapshot) int {
+	count := 0
+	for _, snapshot := range results {
+		if !isLoadingSnapshot(snapshot) {
+			count++
+		}
+	}
+
+	return count
+}
+
 func upsertOrderedSnapshot(results []status.Snapshot, snapshot status.Snapshot, providerIDs []string) []status.Snapshot {
 	updated := make([]status.Snapshot, 0, len(results)+1)
 	replaced := false
@@ -1541,7 +1588,7 @@ func (m model) inspectLines() []string {
 		return []string{"No provider selected."}
 	}
 
-	snapshot := results[m.clampedStatusIndex()]
+	snapshot := results[m.selectedStatusIndex()]
 
 	lines := []string{
 		titleStyle.Render(snapshot.Name),
@@ -1917,7 +1964,7 @@ func (m model) scrollForSelectedStatus() int {
 	}
 
 	currentScroll := m.clampedStatusScroll()
-	selectedRow := m.clampedStatusIndex() / m.gridColumns()
+	selectedRow := m.selectedStatusIndex() / m.gridColumns()
 	firstVisibleRow := m.firstVisibleGridRow(currentScroll)
 	visibleRows := m.visibleGridRowsAtScroll(m.bodyHeight(), currentScroll)
 
@@ -1947,7 +1994,7 @@ func (m model) selectedStatusLineRange() (int, int) {
 		return 0, 0
 	}
 
-	row := m.clampedStatusIndex() / m.gridColumns()
+	row := m.selectedStatusIndex() / m.gridColumns()
 	top := m.gridStartLine() + row*m.gridRowStride()
 
 	return top, top + m.gridCardOuterHeight() - 1
@@ -2151,11 +2198,76 @@ func (m model) clampedSidebarScroll() int {
 	return clamp(m.sidebarScroll, 0, maxScroll(len(m.sidebarRows()), m.bodyHeight()))
 }
 
-func (m model) clampedStatusIndex() int {
-	return clamp(m.selectedStatus, 0, max(0, len(m.filteredStatusResults())-1))
+func (m model) selectedStatusIndex() int {
+	results := m.filteredStatusResults()
+	if len(results) == 0 {
+		return 0
+	}
+
+	if m.selectedProviderID != "" {
+		for idx, snapshot := range results {
+			if snapshot.ProviderID == m.selectedProviderID {
+				return idx
+			}
+		}
+	}
+
+	return clamp(m.selectedStatus, 0, len(results)-1)
+}
+
+func (m *model) syncSelectedStatus() {
+	results := m.filteredStatusResults()
+	if len(results) == 0 {
+		m.selectedStatus = 0
+
+		return
+	}
+
+	if m.selectedProviderID != "" {
+		for idx, snapshot := range results {
+			if snapshot.ProviderID == m.selectedProviderID {
+				m.selectedStatus = idx
+
+				return
+			}
+		}
+
+		if m.loading && containsString(m.providerIDs, m.selectedProviderID) {
+			m.selectedStatus = clamp(m.selectedStatus, 0, len(results)-1)
+
+			return
+		}
+	}
+
+	m.selectedStatus = clamp(m.selectedStatus, 0, len(results)-1)
+	m.selectedProviderID = results[m.selectedStatus].ProviderID
+}
+
+func containsString(items []string, target string) bool {
+	for _, item := range items {
+		if item == target {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (m *model) setSelectedStatusIndex(index int) {
+	results := m.filteredStatusResults()
+	if len(results) == 0 {
+		m.selectedStatus = 0
+		m.selectedProviderID = ""
+
+		return
+	}
+
+	m.selectedStatus = clamp(index, 0, len(results)-1)
+	m.selectedProviderID = results[m.selectedStatus].ProviderID
 }
 
 func renderGridCard(snapshot status.Snapshot, width, height int, selected bool) string {
+	loading := isLoadingSnapshot(snapshot)
 	color := stateColor(snapshot.State)
 	if selected {
 		color = lipgloss.Color("205")
@@ -2173,11 +2285,18 @@ func renderGridCard(snapshot status.Snapshot, width, height int, selected bool) 
 	if selected {
 		name := wrapWithPrefix(snapshot.Name, "› ", "  ", max(minSidebarContentWidth, width-gridCardHorizontalPadding))
 		nameLines = strings.Split(selectedStyle.Render(name), "\n")
+	} else if loading {
+		nameLines = strings.Split(subtleStyle.Render(strings.Join(nameLines, "\n")), "\n")
 	} else {
 		nameLines = strings.Split(lipgloss.NewStyle().Bold(true).Render(strings.Join(nameLines, "\n")), "\n")
 	}
 
-	stateText := lipgloss.NewStyle().Foreground(stateColor(snapshot.State)).Bold(true).Render(snapshot.State.Display())
+	stateLabel := snapshot.State.Display()
+	if loading {
+		stateLabel = loadingStatusSummary
+	}
+
+	stateText := lipgloss.NewStyle().Foreground(stateColor(snapshot.State)).Bold(true).Render(stateLabel)
 
 	lines := append([]string{}, nameLines...)
 	lines = append(lines, stateText)

@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"testing"
@@ -8,6 +9,16 @@ import (
 	"github.com/ikan31/tuip/internal/providers"
 	"github.com/ikan31/tuip/internal/status"
 )
+
+type staticMetadataProvider struct {
+	metadata providers.Metadata
+}
+
+func (p staticMetadataProvider) Metadata() providers.Metadata { return p.metadata }
+
+func (p staticMetadataProvider) Fetch(context.Context) (status.Snapshot, error) {
+	return status.Snapshot{ProviderID: p.metadata.ID, Name: p.metadata.Name}, nil
+}
 
 func TestRenderGridCardWrapsProviderName(t *testing.T) {
 	t.Parallel()
@@ -110,6 +121,58 @@ func TestSidebarScrollKeepsSelectedItemInViewport(t *testing.T) {
 
 	if line < m.sidebarScroll || line >= m.sidebarScroll+m.bodyHeight() {
 		t.Fatalf("selected sidebar line %d outside viewport %d-%d", line, m.sidebarScroll, m.sidebarScroll+m.bodyHeight()-1)
+	}
+}
+
+func TestPlaceholderSnapshotsFillDashboardWhileLoading(t *testing.T) {
+	t.Parallel()
+
+	registry := providers.NewRegistry()
+	for _, metadata := range []providers.Metadata{
+		{ID: "1password", Name: "1Password", SourceURL: "https://status.1password.com"},
+		{ID: "slack", Name: "Slack", SourceURL: "https://status.slack.com"},
+	} {
+		item := metadata
+		if err := registry.Register(item, func() providers.Provider { return staticMetadataProvider{metadata: item} }); err != nil {
+			t.Fatalf("Register() error = %v", err)
+		}
+	}
+
+	snapshots := placeholderSnapshots(registry, []string{"1password", "slack"})
+	if len(snapshots) != 2 {
+		t.Fatalf("placeholderSnapshots() len = %d, want 2", len(snapshots))
+	}
+
+	if snapshots[1].ProviderID != "slack" || snapshots[1].Name != "Slack" || snapshots[1].Summary != loadingStatusSummary {
+		t.Fatalf("slack placeholder = %#v", snapshots[1])
+	}
+
+	if loaded := loadedStatusCount(snapshots); loaded != 0 {
+		t.Fatalf("loadedStatusCount(placeholders) = %d, want 0", loaded)
+	}
+}
+
+func TestSelectedProviderIDSurvivesEarlierStreamingResult(t *testing.T) {
+	t.Parallel()
+
+	providerIDs := []string{"1password", "slack"}
+	m := model{
+		loading:            true,
+		providerIDs:        providerIDs,
+		selectedProviderID: "slack",
+	}
+
+	m.response.Results = upsertOrderedSnapshot(m.response.Results, status.Snapshot{ProviderID: "1password", Name: "1Password", State: status.StateOperational}, providerIDs)
+	m.syncSelectedStatus()
+	if m.selectedProviderID != "slack" {
+		t.Fatalf("selection changed while selected provider was still pending: %q", m.selectedProviderID)
+	}
+
+	m.response.Results = upsertOrderedSnapshot(m.response.Results, status.Snapshot{ProviderID: "slack", Name: "Slack", State: status.StateOperational}, providerIDs)
+	m.syncSelectedStatus()
+
+	if m.selectedProviderID != "slack" || m.selectedStatus != 1 {
+		t.Fatalf("selection = %q at %d, want slack at 1", m.selectedProviderID, m.selectedStatus)
 	}
 }
 

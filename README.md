@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/ikan31/tuip/actions/workflows/ci.yml/badge.svg)](https://github.com/ikan31/tuip/actions/workflows/ci.yml)
 
-`tuip` is a terminal CLI and TUI for checking public SaaS status pages. It normalizes vendor-specific status APIs into one model so you can quickly inspect provider health from your shell or an interactive dashboard.
+`tuip` is a CLI and TUI tool for checking public SaaS status pages.
 
 ## Screenshots
 
