@@ -4,19 +4,7 @@
 
 `tuip` is a CLI and TUI tool for checking public SaaS status pages.
 
-## Screenshots
-
-<p align="center">
-  <img src="docs/assets/tuip-dashboard.png" alt="tuip dashboard overview" width="900">
-</p>
-
-<p align="center"><em>Dashboard overview</em></p>
-
-<p align="center">
-  <img src="docs/assets/tuip-details.png" alt="tuip provider details view" width="900">
-</p>
-
-<p align="center"><em>Provider details</em></p>
+![Demo of the app](docs/assets/demo.webp)
 
 ## Features
 
