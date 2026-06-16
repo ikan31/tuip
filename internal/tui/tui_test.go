@@ -305,6 +305,71 @@ func TestGridLinesShowsDashboardFilterBar(t *testing.T) {
 	}
 }
 
+func TestStatusFilterLineStaysVisibleWhileFilteringScrolledGrid(t *testing.T) {
+	t.Parallel()
+
+	results := make([]status.Snapshot, 30)
+	for idx := range results {
+		results[idx] = status.Snapshot{
+			ProviderID: fmt.Sprintf("provider-%02d", idx),
+			Name:       fmt.Sprintf("Alpha Provider %02d", idx),
+			State:      status.StateOperational,
+		}
+	}
+
+	m := model{
+		width:          100,
+		height:         20,
+		focus:          focusStatus,
+		mode:           inputStatusFilter,
+		statusFind:     "a",
+		selectedStatus: len(results) - 1,
+		response:       status.Response{Results: results},
+	}
+
+	m.statusScroll = m.scrollForSelectedStatus()
+	if m.statusScroll == 0 {
+		t.Fatal("test setup expected scrolled status grid")
+	}
+
+	rendered := m.renderMain(m.bodyHeight(), m.statusScroll)
+	if !strings.Contains(rendered, "Search: a_") {
+		t.Fatalf("renderMain() hid active search line while scrolled:\n%s", rendered)
+	}
+}
+
+func TestStatusFilterLineStaysVisibleWhenFilterIsApplied(t *testing.T) {
+	t.Parallel()
+
+	results := make([]status.Snapshot, 30)
+	for idx := range results {
+		results[idx] = status.Snapshot{
+			ProviderID: fmt.Sprintf("provider-%02d", idx),
+			Name:       fmt.Sprintf("Alpha Provider %02d", idx),
+			State:      status.StateOperational,
+		}
+	}
+
+	m := model{
+		width:          100,
+		height:         20,
+		focus:          focusStatus,
+		statusFind:     "a",
+		selectedStatus: len(results) - 1,
+		response:       status.Response{Results: results},
+	}
+
+	m.statusScroll = m.scrollForSelectedStatus()
+	if m.statusScroll == 0 {
+		t.Fatal("test setup expected scrolled status grid")
+	}
+
+	rendered := m.renderMain(m.bodyHeight(), m.statusScroll)
+	if !strings.Contains(rendered, "(30/30)") || !strings.Contains(rendered, "press / to search") {
+		t.Fatalf("renderMain() hid applied filter line while scrolled:\n%s", rendered)
+	}
+}
+
 func TestStatusScrollCanHideErrorPrefixToShowFullCardRows(t *testing.T) {
 	t.Parallel()
 

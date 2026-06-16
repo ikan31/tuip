@@ -750,10 +750,7 @@ func (m model) renderSidebarItem(idx int, item sidebarItem) string {
 
 func (m model) renderMain(height, scroll int) string {
 	bodyLines := m.bodyLines()
-
-	visibleHeight := m.mainVisibleHeight(height, scroll)
-
-	visibleBody := sliceLines(bodyLines, scroll, visibleHeight)
+	visibleBody := m.visibleMainBodyLines(bodyLines, height, scroll)
 
 	for len(visibleBody) < height {
 		visibleBody = append(visibleBody, "")
@@ -827,6 +824,41 @@ func (m model) gridLines() []string {
 	}
 
 	return rows
+}
+
+func (m model) visibleMainBodyLines(bodyLines []string, height, scroll int) []string {
+	if m.stickyStatusFilter() {
+		return m.stickyStatusBodyLines(bodyLines, height, scroll)
+	}
+
+	visibleHeight := m.mainVisibleHeight(height, scroll)
+
+	return sliceLines(bodyLines, scroll, visibleHeight)
+}
+
+func (m model) stickyStatusFilter() bool {
+	return !m.inspect && len(m.response.Results) > 0 && (m.mode == inputStatusFilter || strings.TrimSpace(m.statusFind) != "")
+}
+
+func (m model) stickyStatusBodyLines(bodyLines []string, height, scroll int) []string {
+	filterLines := m.statusFilterLines(len(m.filteredStatusResults()))
+	if height <= len(filterLines) {
+		return sliceLines(filterLines, 0, height)
+	}
+
+	bodyScroll := max(scroll, m.gridStartLine())
+	visibleHeight := m.stickyStatusGridVisibleHeight(height - len(filterLines))
+	visibleBody := append([]string{}, filterLines...)
+
+	return append(visibleBody, sliceLines(bodyLines, bodyScroll, visibleHeight)...)
+}
+
+func (m model) stickyStatusGridVisibleHeight(height int) int {
+	if len(m.filteredStatusResults()) == 0 {
+		return height
+	}
+
+	return min(height, m.visibleGridRowsForHeight(height)*m.gridRowStride()-1)
 }
 
 func (m model) statusFilterLines(matchCount int) []string {
