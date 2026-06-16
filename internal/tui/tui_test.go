@@ -365,8 +365,10 @@ func TestStatusFilterLineStaysVisibleWhenFilterIsApplied(t *testing.T) {
 	}
 
 	rendered := m.renderMain(m.bodyHeight(), m.statusScroll)
-	if !strings.Contains(rendered, "(30/30)") || !strings.Contains(rendered, "press / to search") {
-		t.Fatalf("renderMain() hid applied filter line while scrolled:\n%s", rendered)
+	for _, want := range []string{"(30/30)", "Search: a", "press / to search"} {
+		if !strings.Contains(rendered, want) {
+			t.Fatalf("renderMain() hid applied filter detail %q while scrolled:\n%s", want, rendered)
+		}
 	}
 }
 

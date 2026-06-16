@@ -878,6 +878,10 @@ func (m model) statusFilterLines(matchCount int) []string {
 		line = fmt.Sprintf("(%d/%d)", matchCount, len(m.response.Results))
 	}
 
+	if query != "" {
+		line = strings.TrimSpace(line + " Search: " + query)
+	}
+
 	hint := "press / to search"
 
 	if m.mode == inputStatusFilter {
