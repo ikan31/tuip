@@ -35,8 +35,6 @@ Most concrete SaaS providers do **not** need their own package. If they use an e
 - Uptime Kuma-backed status pages go in `uptimeKumaRegistrations`.
 - Custom providers with their own implementation are registered in `NewRegistry`.
 
-For example, Cloudflare and GitHub are built-in providers, but they do not need separate packages because their status APIs are handled by reusable adapters.
-
 ### `internal/providers/statuspage`
 
 Reusable adapter for Atlassian Statuspage-compatible APIs, usually:
@@ -194,5 +192,3 @@ go test ./...
 go run ./cmd/tuip providers list
 go run ./cmd/tuip status --json <provider-id>
 ```
-
-Also update docs/examples if the new provider changes user-facing behavior, aliases, or categories.
