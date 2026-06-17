@@ -1,6 +1,6 @@
 # tuip Architecture
 
-This document explains how `tuip` is organized for maintainers and provider contributors. User-facing usage docs live in the root [`README.md`](../README.md). Provider contribution guidance starts in [`CONTRIBUTING.md`](../CONTRIBUTING.md) and [`internal/providers/README.md`](../internal/providers/README.md).
+This document explains how `tuip` is organized for maintainers and provider contributors. User-facing usage docs live in the root [`README.md`](../README.md). Additional provider based documentation lives in [`internal/providers/README.md`](../internal/providers/README.md).
 
 `tuip` is published as a CLI/TUI tool. Packages under `internal/` are implementation details, not a public Go library API.
 
@@ -164,7 +164,7 @@ Output code consumes `status.Response`; it should not fetch providers or know ab
 
 ### `internal/statuscache`
 
-Persistent JSON cache for latest provider snapshots. The cache is keyed by canonical provider ID so the virtual `all` dashboard and user dashboards can share fresh results.
+Persistent JSON cache for latest provider snapshots. The cache is keyed by canonical provider ID so the `all` dashboard and user dashboards can share fresh results.
 
 The TUI currently uses:
 
@@ -211,26 +211,14 @@ Error       fetch/parse/runtime error text when State is error
 
 ## Status mapping
 
-### Statuspage
+Each provider adapter maps its upstream API into tuip's normalized `status.State` values. The mapping lives with the adapter that understands that API shape:
 
-Statuspage `indicator` values map to normalized states:
+- Statuspage-compatible providers: `internal/providers/statuspage/statuspage.go`
+- PagerDuty-hosted status pages: `internal/providers/pagerdutystatus/pagerdutystatus.go`
+- Uptime Kuma public status pages: `internal/providers/uptimekuma/uptimekuma.go`
+- Slack's custom status API: `internal/providers/slack/slack.go`
 
-- `none` -> `operational`
-- `minor` -> `degraded`
-- `major` -> `major_outage`
-- `critical` -> `major_outage`
-- `maintenance` -> `maintenance`
-- empty/unknown -> `unknown`
-
-If top-level status is operational but scheduled maintenance is in progress, the adapter reports `maintenance`.
-
-### Slack
-
-Slack maps `ok`, `active`, and `resolved` to `operational`. Active incidents override the top-level status to `degraded`. Unknown or empty values become `unknown`.
-
-### Fetch errors
-
-Provider fetch errors become `error` snapshots so users can still see partial results. The command exits non-zero if any requested provider failed to check.
+Provider/API-specific mapping exceptions should stay in the relevant adapter, alongside the parsing code that understands the upstream fields.
 
 ## Dashboard config
 
@@ -252,29 +240,9 @@ dashboards:
 Rules:
 
 - Dashboard names are user-defined.
-- `all` is reserved for the virtual dashboard containing every built-in provider.
+- `all` is reserved for the dashboard containing every built-in provider.
 - Provider IDs should be canonicalized through the registry before saving config mutations.
 - Config files are written with `0600`; parent directories use `0750`.
-
-## Adding providers
-
-Preferred order:
-
-1. Use an existing structured public API.
-2. Use `internal/providers/statuspage` for Statuspage-compatible `/api/v2/summary.json` APIs.
-3. Use `internal/providers/pagerdutystatus` for PagerDuty-hosted `/api/data` APIs.
-4. Use `internal/providers/uptimekuma` for Uptime Kuma status-page and heartbeat JSON APIs.
-5. Add a reusable adapter if several providers share another status-page API.
-6. Use HTML scraping only as a last resort, with fixtures and tests.
-
-After adding or changing a provider:
-
-```bash
-make fmt
-go test ./...
-go run ./cmd/tuip providers list
-go run ./cmd/tuip status --json <provider-id>
-```
 
 ## Testing
 

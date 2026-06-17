@@ -8,12 +8,12 @@
 
 ## Features
 
-- **CLI and TUI workflows** for ad-hoc checks, reusable dashboards, and interactive status browsing.
-- **Normalized status states**: `operational`, `degraded`, `partial_outage`, `major_outage`, `maintenance`, `unknown`, and `error`.
-- **Built-in provider catalog** with SaaS, cloud, data, developer tools, observability, collaboration, finance, HR, and related services.
-- **Shareable YAML dashboards** backed by stable provider IDs.
-- **Detailed provider output** when available, including incidents, maintenance windows, components, source URLs, and update timestamps.
-- **No credentials required** for built-in providers; `tuip` only uses public status APIs/pages.
+- **CLI and TUI workflows** for ad-hoc checks, reusable dashboards, and interactive status browsing
+- **Normalized status states**
+- **Built-in provider catalog**
+- **Shareable YAML dashboards**
+- **Detailed provider output**
+- **No credentials required**
 
 ## Installation
 
@@ -148,17 +148,7 @@ Run the TUI with no subcommand:
 tuip
 ```
 
-The TUI loads the configured default dashboard. If no default dashboard exists, it shows the virtual `all` dashboard with every built-in provider.
-
-Common keys:
-
-- Arrow keys or `h`/`j`/`k`/`l`: move through panes and status cards.
-- `enter`: select management items, select dashboards, toggle providers, or open status details.
-- `/`: focus the dashboard filter in the status pane.
-- `esc`: leave filter/details focus without quitting.
-- `c`, `r`, `d`, `s`: create, rename, delete/details, or set the default dashboard.
-- `R`: force-refresh the active dashboard and bypass the cache.
-- `ctrl+c`: quit.
+The TUI loads the configured default dashboard. If no default dashboard exists, it shows the `all` dashboard with every built-in provider.
 
 The TUI keeps a 60-second provider-level status cache. Error snapshots are cached for 10 seconds.
 
@@ -176,14 +166,17 @@ Provider IDs are stable and intended for dashboard config. Aliases are accepted 
 
 Provider source notes:
 
-- Most providers use Atlassian Statuspage-compatible JSON (`/api/v2/summary.json`).
-- Some providers use PagerDuty-hosted status-page JSON (`/api/data`).
-- Some providers use Uptime Kuma public status-page JSON.
-- Slack uses Slack's public status API for top-level status and active incidents.
+- Atlassian Statuspage-compatible JSON
+  - `/api/v2/summary.json`
+- PagerDuty-hosted status-page JSON
+  - `/api/data`
+- Uptime Kuma public status-page JSON
+  - `/api/status-page/{provider}`
+- Custom public APIs when a provider needs provider-specific handling
 
 ## Configuration
 
-Dashboard config is YAML. Dashboard name `all` is reserved for `tuip`'s virtual dashboard containing every built-in provider.
+Dashboard config is YAML. Dashboard name `all` is reserved for `tuip`'s dashboard containing every built-in provider.
 
 Default location on macOS/Linux:
 
@@ -271,4 +264,4 @@ git tag -a v1.0.0 -m "tuip v1.0.0"
 git push origin v1.0.0
 ```
 
-Provider contribution guidance lives in [`CONTRIBUTING.md`](./CONTRIBUTING.md). Architecture and implementation notes live in [`docs/architecture.md`](./docs/architecture.md).
+Architecture and implementation notes live in [`docs/architecture.md`](./docs/architecture.md).
