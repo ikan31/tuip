@@ -148,7 +148,7 @@ Run the TUI with no subcommand:
 tuip
 ```
 
-The TUI loads the configured default dashboard. If no default dashboard exists, it shows the virtual `all` dashboard with every built-in provider.
+The TUI loads the configured default dashboard. If no default dashboard exists, it shows the `all` dashboard with every built-in provider.
 
 The TUI keeps a 60-second provider-level status cache. Error snapshots are cached for 10 seconds.
 
@@ -166,12 +166,13 @@ Provider IDs are stable and intended for dashboard config. Aliases are accepted 
 
 Provider source notes:
 
-- Atlassian Statuspage-compatible JSON 
+- Atlassian Statuspage-compatible JSON
   - `/api/v2/summary.json`
-- PagerDuty-hosted status-page JSON 
+- PagerDuty-hosted status-page JSON
   - `/api/data`
 - Uptime Kuma public status-page JSON
   - `/api/status-page/{provider}`
+- Custom public APIs when a provider needs provider-specific handling
 
 ## Configuration
 

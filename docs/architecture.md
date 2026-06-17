@@ -164,7 +164,7 @@ Output code consumes `status.Response`; it should not fetch providers or know ab
 
 ### `internal/statuscache`
 
-Persistent JSON cache for latest provider snapshots. The cache is keyed by canonical provider ID so the virtual `all` dashboard and user dashboards can share fresh results.
+Persistent JSON cache for latest provider snapshots. The cache is keyed by canonical provider ID so the `all` dashboard and user dashboards can share fresh results.
 
 The TUI currently uses:
 
@@ -218,6 +218,7 @@ Each provider adapter maps its upstream API into tuip's normalized `status.State
 - Uptime Kuma public status pages: `internal/providers/uptimekuma/uptimekuma.go`
 - Slack's custom status API: `internal/providers/slack/slack.go`
 
+Provider/API-specific mapping exceptions should stay in the relevant adapter, alongside the parsing code that understands the upstream fields.
 
 ## Dashboard config
 
@@ -239,7 +240,7 @@ dashboards:
 Rules:
 
 - Dashboard names are user-defined.
-- `all` is reserved for the virtual dashboard containing every built-in provider.
+- `all` is reserved for the dashboard containing every built-in provider.
 - Provider IDs should be canonicalized through the registry before saving config mutations.
 - Config files are written with `0600`; parent directories use `0750`.
 
