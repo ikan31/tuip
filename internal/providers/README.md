@@ -74,6 +74,18 @@ Reusable adapter for Uptime Kuma public status pages exposing endpoints like:
 
 Use this when a service publishes Uptime Kuma JSON for monitor groups, incidents, and heartbeat status. The adapter maps heartbeat status values into tuip's normalized states and exposes monitors as components.
 
+### `internal/providers/aws`, `internal/providers/azure`, and `internal/providers/docker`
+
+Cloud/package registry providers backed by public RSS feeds.
+
+RSS defines item structure but not incident semantics, so each package keeps provider-specific parsing for active versus historical items, severity mapping, timestamps, and incident summaries.
+
+### `internal/providers/gcp`
+
+Google Cloud-specific provider implementation.
+
+Google Cloud exposes a structured public `incidents.json` endpoint. The provider maps active incidents, severity, affected products, and affected locations into tuip snapshots, incidents, and components.
+
 ### `internal/providers/slack`
 
 Slack-specific provider implementation.
@@ -92,7 +104,7 @@ The split is by responsibility, not by whether something is "built in".
 
 - `builtin` is the catalog/registry wiring for all providers that ship with tuip.
 - `statuspage`, `pagerdutystatus`, and `uptimekuma` are reusable source adapters.
-- `slack` is separate because Slack needs custom fetch/parsing logic.
+- `aws`, `azure`, `docker`, `gcp`, and `slack` are separate because they need custom fetch/parsing logic.
 - The root `providers` package is only the provider interface, metadata, and registry.
 
 Avoid creating a new vendor package unless the provider needs custom implementation logic or several providers can share a new reusable adapter.
@@ -169,9 +181,15 @@ If the service has its own JSON API shape:
 4. Register it in `builtin.NewRegistry`.
 5. Add fixtures and tests for status mapping and parsing.
 
-Slack is the current example of this approach.
+Slack and Google Cloud are examples of this approach.
 
-### 5. HTML-only status page
+### 5. RSS or Atom feed
+
+Use feed-based providers when the service exposes public incident feeds but no structured current-status JSON. Feed providers should document whether the feed is active-only or historical, and should avoid treating every feed item as an active outage unless the upstream semantics support that.
+
+AWS, Azure, and Docker are examples of this approach.
+
+### 6. HTML-only status page
 
 Use HTML scraping only as a last resort.
 

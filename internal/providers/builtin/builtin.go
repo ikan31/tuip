@@ -5,13 +5,17 @@ import (
 
 	"github.com/ikan31/tuip/internal/fetch"
 	"github.com/ikan31/tuip/internal/providers"
+	"github.com/ikan31/tuip/internal/providers/aws"
+	"github.com/ikan31/tuip/internal/providers/azure"
+	"github.com/ikan31/tuip/internal/providers/docker"
+	"github.com/ikan31/tuip/internal/providers/gcp"
 	"github.com/ikan31/tuip/internal/providers/pagerdutystatus"
 	"github.com/ikan31/tuip/internal/providers/slack"
 	"github.com/ikan31/tuip/internal/providers/statuspage"
 	"github.com/ikan31/tuip/internal/providers/uptimekuma"
 )
 
-const customProviderCount = 1
+const customProviderCount = 5
 
 type registration struct {
 	metadata providers.Metadata
@@ -29,6 +33,18 @@ func NewRegistry(client *fetch.Client) (*providers.Registry, error) {
 	registrations = append(registrations, registration{
 		metadata: slack.New(client).Metadata(),
 		factory:  func() providers.Provider { return slack.New(client) },
+	}, registration{
+		metadata: aws.New(client).Metadata(),
+		factory:  func() providers.Provider { return aws.New(client) },
+	}, registration{
+		metadata: azure.New(client).Metadata(),
+		factory:  func() providers.Provider { return azure.New(client) },
+	}, registration{
+		metadata: docker.New(client).Metadata(),
+		factory:  func() providers.Provider { return docker.New(client) },
+	}, registration{
+		metadata: gcp.New(client).Metadata(),
+		factory:  func() providers.Provider { return gcp.New(client) },
 	})
 
 	registrations = append(registrations, pagerDutyStatusRegs...)
@@ -882,6 +898,15 @@ func statuspageRegistrations(client *fetch.Client) []registration {
 			SummaryURL:  "https://status.getcensus.com/api/v2/summary.json",
 		},
 		{
+			ID:          "censys",
+			Name:        "Censys",
+			Description: "Censys service status",
+			Category:    "Security",
+			SourceURL:   "https://status.censys.com/",
+			APIURL:      "https://status.censys.com/api",
+			SummaryURL:  "https://status.censys.com/api/v2/summary.json",
+		},
+		{
 			ID:          "chargebee",
 			Name:        "Chargebee",
 			Description: "Chargebee service status",
@@ -1086,6 +1111,26 @@ func statuspageRegistrations(client *fetch.Client) []registration {
 			SummaryURL:  "https://status.harness.io/api/v2/summary.json",
 		},
 		{
+			ID:          "hashicorp",
+			Aliases:     []string{"terraform", "terraform-cloud", "hcp"},
+			Name:        "HashiCorp Services",
+			Description: "HashiCorp Services status",
+			Category:    "Cloud & Hosting",
+			SourceURL:   "https://status.hashicorp.com/",
+			APIURL:      "https://status.hashicorp.com/api",
+			SummaryURL:  "https://status.hashicorp.com/api/v2/summary.json",
+		},
+		{
+			ID:          "harvey",
+			Aliases:     []string{"harvey-ai"},
+			Name:        "Harvey AI",
+			Description: "Harvey AI service status",
+			Category:    "AI",
+			SourceURL:   "https://status.harvey.ai/",
+			APIURL:      "https://status.harvey.ai/api",
+			SummaryURL:  "https://status.harvey.ai/api/v2/summary.json",
+		},
+		{
 			ID:          "heap",
 			Name:        "Heap",
 			Description: "Heap service status",
@@ -1093,6 +1138,15 @@ func statuspageRegistrations(client *fetch.Client) []registration {
 			SourceURL:   "https://status.heap.io/",
 			APIURL:      "https://status.heap.io/api",
 			SummaryURL:  "https://status.heap.io/api/v2/summary.json",
+		},
+		{
+			ID:          "hightouch",
+			Name:        "Hightouch",
+			Description: "Hightouch service status",
+			Category:    "Data Integration",
+			SourceURL:   "https://status.hightouch.io/",
+			APIURL:      "https://status.hightouch.io/api",
+			SummaryURL:  "https://status.hightouch.io/api/v2/summary.json",
 		},
 		{
 			ID:          "honeycomb",
@@ -1142,6 +1196,16 @@ func statuspageRegistrations(client *fetch.Client) []registration {
 			SummaryURL:  "https://status.inngest.com/api/v2/summary.json",
 		},
 		{
+			ID:          "jetbrains-ai",
+			Aliases:     []string{"jetbrains"},
+			Name:        "JetBrains AI",
+			Description: "JetBrains AI service status",
+			Category:    "AI",
+			SourceURL:   "https://status.jetbrains.ai/",
+			APIURL:      "https://status.jetbrains.ai/api",
+			SummaryURL:  "https://status.jetbrains.ai/api/v2/summary.json",
+		},
+		{
 			ID:          "jfrog",
 			Aliases:     []string{"artifactory", "artifactory-cloud"},
 			Name:        "JFrog Cloud",
@@ -1169,6 +1233,15 @@ func statuspageRegistrations(client *fetch.Client) []registration {
 			SourceURL:   "https://status.launchdarkly.com/",
 			APIURL:      "https://status.launchdarkly.com/api",
 			SummaryURL:  "https://status.launchdarkly.com/api/v2/summary.json",
+		},
+		{
+			ID:          "linear",
+			Name:        "Linear",
+			Description: "Linear service status",
+			Category:    "Project Management",
+			SourceURL:   "https://linearstatus.com/",
+			APIURL:      "https://linearstatus.com/api",
+			SummaryURL:  "https://linearstatus.com/api/v2/summary.json",
 		},
 		{
 			ID:          "logzio",
@@ -1272,6 +1345,15 @@ func statuspageRegistrations(client *fetch.Client) []registration {
 			SourceURL:   "https://status.opsgenie.com/",
 			APIURL:      "https://status.opsgenie.com/api",
 			SummaryURL:  "https://status.opsgenie.com/api/v2/summary.json",
+		},
+		{
+			ID:          "pantheon",
+			Name:        "Pantheon",
+			Description: "Pantheon service status",
+			Category:    "Cloud & Hosting",
+			SourceURL:   "https://status.pantheon.io/",
+			APIURL:      "https://status.pantheon.io/api",
+			SummaryURL:  "https://status.pantheon.io/api/v2/summary.json",
 		},
 		{
 			ID:          "pendo",
@@ -1422,6 +1504,15 @@ func statuspageRegistrations(client *fetch.Client) []registration {
 			SummaryURL:  "https://status.sendgrid.com/api/v2/summary.json",
 		},
 		{
+			ID:          "shopify",
+			Name:        "Shopify",
+			Description: "Shopify service status",
+			Category:    "Commerce",
+			SourceURL:   "https://www.shopifystatus.com/",
+			APIURL:      "https://www.shopifystatus.com/api",
+			SummaryURL:  "https://www.shopifystatus.com/api/v2/summary.json",
+		},
+		{
 			ID:          "shortcut",
 			Name:        "Shortcut",
 			Description: "Shortcut service status",
@@ -1429,6 +1520,15 @@ func statuspageRegistrations(client *fetch.Client) []registration {
 			SourceURL:   "https://status.shortcut.com/",
 			APIURL:      "https://status.shortcut.com/api",
 			SummaryURL:  "https://status.shortcut.com/api/v2/summary.json",
+		},
+		{
+			ID:          "smartsheet",
+			Name:        "Smartsheet",
+			Description: "Smartsheet service status",
+			Category:    "Collaboration",
+			SourceURL:   "https://status.smartsheet.com/",
+			APIURL:      "https://status.smartsheet.com/api",
+			SummaryURL:  "https://status.smartsheet.com/api/v2/summary.json",
 		},
 		{
 			ID:          "snyk",
