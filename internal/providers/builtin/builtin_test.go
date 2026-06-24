@@ -88,6 +88,143 @@ func TestNewRegistryIncludesWave1StatuspageProviders(t *testing.T) {
 	}
 }
 
+func TestNewRegistryIncludesAWSProvider(t *testing.T) {
+	t.Parallel()
+
+	registry, err := NewRegistry(fetch.NewClient(time.Second))
+	if err != nil {
+		t.Fatalf("NewRegistry() error = %v", err)
+	}
+
+	provider, ok := registry.Get("aws")
+	if !ok {
+		t.Fatalf("registry.Get(%q) ok = false, want true", "aws")
+	}
+
+	metadata := provider.Metadata()
+	if metadata.Name != "Amazon Web Services" {
+		t.Fatalf("aws Name = %q, want Amazon Web Services", metadata.Name)
+	}
+
+	if metadata.Category != "Cloud & Hosting" {
+		t.Fatalf("aws Category = %q, want Cloud & Hosting", metadata.Category)
+	}
+
+	got, ok := registry.CanonicalID("amazon-web-services")
+	if !ok {
+		t.Fatalf("CanonicalID(%q) ok = false, want true", "amazon-web-services")
+	}
+
+	if got != "aws" {
+		t.Fatalf("CanonicalID(%q) = %q, want aws", "amazon-web-services", got)
+	}
+}
+
+func TestNewRegistryIncludesAzureProvider(t *testing.T) {
+	t.Parallel()
+
+	registry, err := NewRegistry(fetch.NewClient(time.Second))
+	if err != nil {
+		t.Fatalf("NewRegistry() error = %v", err)
+	}
+
+	provider, ok := registry.Get("azure")
+	if !ok {
+		t.Fatalf("registry.Get(%q) ok = false, want true", "azure")
+	}
+
+	metadata := provider.Metadata()
+	if metadata.Name != "Microsoft Azure" {
+		t.Fatalf("azure Name = %q, want Microsoft Azure", metadata.Name)
+	}
+
+	if metadata.Category != "Cloud & Hosting" {
+		t.Fatalf("azure Category = %q, want Cloud & Hosting", metadata.Category)
+	}
+
+	aliases := []string{"microsoft-azure", "msazure"}
+	for _, alias := range aliases {
+		got, ok := registry.CanonicalID(alias)
+		if !ok {
+			t.Fatalf("CanonicalID(%q) ok = false, want true", alias)
+		}
+
+		if got != "azure" {
+			t.Fatalf("CanonicalID(%q) = %q, want azure", alias, got)
+		}
+	}
+}
+
+func TestNewRegistryIncludesDockerProvider(t *testing.T) {
+	t.Parallel()
+
+	registry, err := NewRegistry(fetch.NewClient(time.Second))
+	if err != nil {
+		t.Fatalf("NewRegistry() error = %v", err)
+	}
+
+	provider, ok := registry.Get("docker")
+	if !ok {
+		t.Fatalf("registry.Get(%q) ok = false, want true", "docker")
+	}
+
+	metadata := provider.Metadata()
+	if metadata.Name != "Docker" {
+		t.Fatalf("docker Name = %q, want Docker", metadata.Name)
+	}
+
+	if metadata.Category != "Package Registries" {
+		t.Fatalf("docker Category = %q, want Package Registries", metadata.Category)
+	}
+
+	aliases := []string{"docker-hub", "dockerhub"}
+	for _, alias := range aliases {
+		got, ok := registry.CanonicalID(alias)
+		if !ok {
+			t.Fatalf("CanonicalID(%q) ok = false, want true", alias)
+		}
+
+		if got != "docker" {
+			t.Fatalf("CanonicalID(%q) = %q, want docker", alias, got)
+		}
+	}
+}
+
+func TestNewRegistryIncludesGCPProvider(t *testing.T) {
+	t.Parallel()
+
+	registry, err := NewRegistry(fetch.NewClient(time.Second))
+	if err != nil {
+		t.Fatalf("NewRegistry() error = %v", err)
+	}
+
+	provider, ok := registry.Get("gcp")
+	if !ok {
+		t.Fatalf("registry.Get(%q) ok = false, want true", "gcp")
+	}
+
+	metadata := provider.Metadata()
+	if metadata.Name != "Google Cloud" {
+		t.Fatalf("gcp Name = %q, want Google Cloud", metadata.Name)
+	}
+
+	if metadata.Category != "Cloud & Hosting" {
+		t.Fatalf("gcp Category = %q, want Cloud & Hosting", metadata.Category)
+	}
+
+	aliases := []string{"google-cloud", "google-cloud-platform"}
+	for _, alias := range aliases {
+		got, ok := registry.CanonicalID(alias)
+		if !ok {
+			t.Fatalf("CanonicalID(%q) ok = false, want true", alias)
+		}
+
+		if got != "gcp" {
+			t.Fatalf("CanonicalID(%q) = %q, want gcp", alias, got)
+		}
+	}
+}
+
 func TestNewRegistryIncludesGitHubProviders(t *testing.T) {
 	t.Parallel()
 
@@ -154,6 +291,7 @@ func TestNewRegistryIncludesDeveloperSaaSProviders(t *testing.T) {
 		"braze",
 		"bugsnag",
 		"census",
+		"censys",
 		"chargebee",
 		"circleci",
 		"clerk",
@@ -181,16 +319,21 @@ func TestNewRegistryIncludesDeveloperSaaSProviders(t *testing.T) {
 		"gocardless",
 		"grafana-cloud",
 		"harness",
+		"hashicorp",
+		"harvey",
 		"heap",
+		"hightouch",
 		"honeycomb",
 		"incident-io",
 		"infisical",
 		"influxdb-cloud",
 		"inngest",
+		"jetbrains-ai",
 		"jfrog",
 		"keeper",
 		"kong",
 		"launchdarkly",
+		"linear",
 		"logzio",
 		"lovable",
 		"mailgun",
@@ -207,6 +350,7 @@ func TestNewRegistryIncludesDeveloperSaaSProviders(t *testing.T) {
 		"opsgenie",
 		"optimizely",
 		"pagerduty",
+		"pantheon",
 		"pendo",
 		"perplexity",
 		"postman",
@@ -225,7 +369,9 @@ func TestNewRegistryIncludesDeveloperSaaSProviders(t *testing.T) {
 		"semaphore",
 		"semgrep",
 		"sendgrid",
+		"shopify",
 		"shortcut",
+		"smartsheet",
 		"snyk",
 		"sparkpost",
 		"splunk-cloud",
@@ -283,11 +429,16 @@ func TestNewRegistryIncludesDeveloperSaaSProviders(t *testing.T) {
 		"circle-ci":           "circleci",
 		"eas":                 "expo",
 		"grafana":             "grafana-cloud",
+		"harvey-ai":           "harvey",
+		"hcp":                 "hashicorp",
+		"jetbrains":           "jetbrains-ai",
 		"maven":               "maven-central",
 		"signalfx":            "splunk-observability-us0",
 		"signalfx-us1":        "splunk-observability-us1",
 		"smartbear-swagger":   "swagger",
 		"splunkcloud":         "splunk-cloud",
+		"terraform":           "hashicorp",
+		"terraform-cloud":     "hashicorp",
 		"tidb":                "tidb-cloud",
 		"turborepo":           "vercel",
 		"vercel-remote-cache": "vercel",

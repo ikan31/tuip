@@ -172,7 +172,10 @@ Provider source notes:
   - `/api/data`
 - Uptime Kuma public status-page JSON
   - `/api/status-page/{provider}`
+- Public RSS feeds with provider-specific active incident parsing
+  - AWS, Azure, Docker
 - Custom public APIs when a provider needs provider-specific handling
+  - Google Cloud, Slack
 
 ## Configuration
 
