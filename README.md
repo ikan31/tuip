@@ -1,8 +1,8 @@
+![Demo of the app](docs/assets/demo.webp)
+
 # tuip
 
 [![CI](https://github.com/ikan31/tuip/actions/workflows/ci.yml/badge.svg)](https://github.com/ikan31/tuip/actions/workflows/ci.yml)
-
-![Demo of the app](docs/assets/demo.webp)
 
 `tuip` is a CLI and TUI tool for checking public SaaS vendors' statuses.
 

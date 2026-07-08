@@ -306,6 +306,8 @@ func TestNewRegistryIncludesDeveloperSaaSProviders(t *testing.T) {
 		"courier",
 		"crates-io",
 		"cursor",
+		"dagster-cloud",
+		"dagster-compass",
 		"depot",
 		"discord",
 		"doppler",
@@ -424,9 +426,11 @@ func TestNewRegistryIncludesDeveloperSaaSProviders(t *testing.T) {
 		})
 	}
 
-	aliases := map[string]string{
+	aliases := map[string]string{ //nolint:gosec // Dagster Compass alias contains "pass" in "compass"; not a credential.
 		"onepassword":         "1password",
 		"circle-ci":           "circleci",
+		"dagstercloud":        "dagster-cloud",
+		"dagstercompass":      "dagster-compass",
 		"eas":                 "expo",
 		"grafana":             "grafana-cloud",
 		"harvey-ai":           "harvey",
