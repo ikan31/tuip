@@ -11,6 +11,7 @@ import (
 	"github.com/ikan31/tuip/internal/providers/gcp"
 	"github.com/ikan31/tuip/internal/providers/pagerdutystatus"
 	"github.com/ikan31/tuip/internal/providers/slack"
+	"github.com/ikan31/tuip/internal/providers/statusio"
 	"github.com/ikan31/tuip/internal/providers/statuspage"
 	"github.com/ikan31/tuip/internal/providers/uptimekuma"
 )
@@ -29,7 +30,8 @@ func NewRegistry(client *fetch.Client) (*providers.Registry, error) {
 	statuspageRegs := statuspageRegistrations(client)
 	pagerDutyStatusRegs := pagerDutyStatusRegistrations(client)
 	uptimeKumaRegs := uptimeKumaRegistrations(client)
-	registrations := make([]registration, 0, customProviderCount+len(pagerDutyStatusRegs)+len(uptimeKumaRegs)+len(statuspageRegs))
+	statusioRegs := statusioRegistrations(client)
+	registrations := make([]registration, 0, customProviderCount+len(pagerDutyStatusRegs)+len(uptimeKumaRegs)+len(statusioRegs)+len(statuspageRegs))
 	registrations = append(registrations, registration{
 		metadata: slack.New(client).Metadata(),
 		factory:  func() providers.Provider { return slack.New(client) },
@@ -49,6 +51,7 @@ func NewRegistry(client *fetch.Client) (*providers.Registry, error) {
 
 	registrations = append(registrations, pagerDutyStatusRegs...)
 	registrations = append(registrations, uptimeKumaRegs...)
+	registrations = append(registrations, statusioRegs...)
 	registrations = append(registrations, statuspageRegs...)
 
 	for _, registration := range registrations {
@@ -170,6 +173,34 @@ func uptimeKumaRegistrations(client *fetch.Client) []registration {
 			metadata: provider.Metadata(),
 			factory: func() providers.Provider {
 				return uptimekuma.NewProvider(client, current)
+			},
+		})
+	}
+
+	return registrations
+}
+
+func statusioRegistrations(client *fetch.Client) []registration {
+	options := []statusio.Options{
+		{
+			ID:          "prefect",
+			Name:        "Prefect",
+			Description: "Prefect Cloud service status",
+			Category:    "Developer Tools",
+			SourceURL:   "https://prefect.status.io/",
+			APIURL:      "https://2266113422411059.hostedstatus.com/1.0/status/5f33ff702715c204c20d6da1",
+			StatusURL:   "https://2266113422411059.hostedstatus.com/1.0/status/5f33ff702715c204c20d6da1",
+		},
+	}
+
+	registrations := make([]registration, 0, len(options))
+	for _, option := range options {
+		current := option
+		provider := statusio.NewProvider(client, current)
+		registrations = append(registrations, registration{
+			metadata: provider.Metadata(),
+			factory: func() providers.Provider {
+				return statusio.NewProvider(client, current)
 			},
 		})
 	}
