@@ -88,6 +88,29 @@ func TestNewRegistryIncludesWave1StatuspageProviders(t *testing.T) {
 	}
 }
 
+func TestNewRegistryIncludesPrefectProvider(t *testing.T) {
+	t.Parallel()
+
+	registry, err := NewRegistry(fetch.NewClient(time.Second))
+	if err != nil {
+		t.Fatalf("NewRegistry() error = %v", err)
+	}
+
+	provider, ok := registry.Get("prefect")
+	if !ok {
+		t.Fatalf("registry.Get(%q) ok = false, want true", "prefect")
+	}
+
+	metadata := provider.Metadata()
+	if metadata.Name != "Prefect" {
+		t.Fatalf("prefect Name = %q, want Prefect", metadata.Name)
+	}
+
+	if metadata.APIURL == "" {
+		t.Fatal("prefect APIURL is empty")
+	}
+}
+
 func TestNewRegistryIncludesAWSProvider(t *testing.T) {
 	t.Parallel()
 

@@ -33,6 +33,7 @@ Most concrete SaaS providers do **not** need their own package. If they use an e
 - Statuspage-backed services go in `statuspageRegistrations`.
 - PagerDuty-hosted status pages go in `pagerDutyStatusRegistrations`.
 - Uptime Kuma-backed status pages go in `uptimeKumaRegistrations`.
+- Status.io public API-backed pages go in `statusioRegistrations`.
 - Custom providers with their own implementation are registered in `NewRegistry`.
 
 ### `internal/providers/statuspage`
@@ -74,6 +75,16 @@ Reusable adapter for Uptime Kuma public status pages exposing endpoints like:
 
 Use this when a service publishes Uptime Kuma JSON for monitor groups, incidents, and heartbeat status. The adapter maps heartbeat status values into tuip's normalized states and exposes monitors as components.
 
+### `internal/providers/statusio`
+
+Reusable adapter for Status.io public status API pages exposing endpoints like:
+
+```text
+/1.0/status/<page-id>
+```
+
+Use this when a service publishes Status.io JSON with `status_overall`, `status`, `status_code`, and component/container status details. The adapter maps Status.io status codes into tuip's normalized states and exposes Status.io components.
+
 ### `internal/providers/aws`, `internal/providers/azure`, and `internal/providers/docker`
 
 Cloud/package registry providers backed by public RSS feeds.
@@ -103,7 +114,7 @@ Put JSON/HTML fixtures here when testing adapter behavior or custom provider par
 The split is by responsibility, not by whether something is "built in".
 
 - `builtin` is the catalog/registry wiring for all providers that ship with tuip.
-- `statuspage`, `pagerdutystatus`, and `uptimekuma` are reusable source adapters.
+- `statuspage`, `pagerdutystatus`, `uptimekuma`, and `statusio` are reusable source adapters.
 - `aws`, `azure`, `docker`, `gcp`, and `slack` are separate because they need custom fetch/parsing logic.
 - The root `providers` package is only the provider interface, metadata, and registry.
 
@@ -171,7 +182,26 @@ If the service exposes Uptime Kuma public status JSON, add an entry to `uptimeKu
 
 No new package is needed.
 
-### 4. Custom structured API
+### 4. Status.io public status API
+
+If the service exposes a Status.io status endpoint, add an entry to `statusioRegistrations` in `internal/providers/builtin/builtin.go`:
+
+```go
+{
+    ID:          "example",
+    Aliases:     []string{"optional-alias"},
+    Name:        "Example",
+    Description: "Example service status",
+    Category:    "Developer Tools",
+    SourceURL:   "https://example.status.io/",
+    APIURL:      "https://<hostedstatus-host>/1.0/status/<page-id>",
+    StatusURL:   "https://<hostedstatus-host>/1.0/status/<page-id>",
+},
+```
+
+No new package is needed.
+
+### 5. Custom structured API
 
 If the service has its own JSON API shape:
 
@@ -183,13 +213,13 @@ If the service has its own JSON API shape:
 
 Slack and Google Cloud are examples of this approach.
 
-### 5. RSS or Atom feed
+### 6. RSS or Atom feed
 
 Use feed-based providers when the service exposes public incident feeds but no structured current-status JSON. Feed providers should document whether the feed is active-only or historical, and should avoid treating every feed item as an active outage unless the upstream semantics support that.
 
 AWS, Azure, and Docker are examples of this approach.
 
-### 6. HTML-only status page
+### 7. HTML-only status page
 
 Use HTML scraping only as a last resort.
 
