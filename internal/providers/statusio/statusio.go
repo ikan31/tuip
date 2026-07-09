@@ -11,6 +11,14 @@ import (
 	"github.com/ikan31/tuip/internal/status"
 )
 
+const (
+	statusCodeOperational   = 100
+	statusCodeMaintenance   = 200
+	statusCodeDegraded      = 300
+	statusCodePartialOutage = 400
+	statusCodeMajorOutage   = 500
+)
+
 // Options configures a reusable Status.io public JSON API provider.
 type Options struct {
 	ID          string
@@ -57,12 +65,14 @@ func (p *Provider) Fetch(ctx context.Context) (status.Snapshot, error) {
 	checkedAt := time.Now().UTC()
 	overall := payload.Result.StatusOverall
 	state := MapStatus(overall.Status, overall.StatusCode)
+
 	summary := strings.TrimSpace(overall.Status)
 	if summary == "" {
 		summary = state.Display()
 	}
 
 	components := mapComponents(payload.Result.Status)
+
 	updatedAt := parseTime(overall.Updated)
 	if updatedAt == nil {
 		updatedAt = latestComponentUpdate(payload.Result.Status)
@@ -84,15 +94,15 @@ func (p *Provider) Fetch(ctx context.Context) (status.Snapshot, error) {
 // MapStatus maps Status.io status labels/codes into tuip's normalized states.
 func MapStatus(label string, code int) status.State {
 	switch code {
-	case 100:
+	case statusCodeOperational:
 		return status.StateOperational
-	case 200:
+	case statusCodeMaintenance:
 		return status.StateMaintenance
-	case 300:
+	case statusCodeDegraded:
 		return status.StateDegraded
-	case 400:
+	case statusCodePartialOutage:
 		return status.StatePartialOutage
-	case 500:
+	case statusCodeMajorOutage:
 		return status.StateMajorOutage
 	}
 
@@ -137,6 +147,7 @@ func mapComponents(items []componentResponse) []status.Component {
 func containerNames(containers []containerResponse) string {
 	names := make([]string, 0, len(containers))
 	seen := map[string]bool{}
+
 	for _, container := range containers {
 		name := strings.TrimSpace(container.Name)
 		if name == "" || seen[name] {
@@ -152,6 +163,7 @@ func containerNames(containers []containerResponse) string {
 
 func latestComponentUpdate(items []componentResponse) *time.Time {
 	var latest *time.Time
+
 	for _, item := range items {
 		updatedAt := parseTime(item.Updated)
 		if updatedAt != nil && (latest == nil || updatedAt.After(*latest)) {
@@ -174,6 +186,7 @@ func parseTime(value string) *time.Time {
 	}
 
 	utc := parsed.UTC()
+
 	return &utc
 }
 
