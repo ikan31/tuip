@@ -6,14 +6,16 @@
 
 `tuip` is a CLI and TUI tool for checking public SaaS vendors' statuses.
 
+**No credentials required**
+
 ## Features
 
-- **CLI and TUI workflows** for ad-hoc checks, reusable dashboards, and interactive status browsing
+- **CLI** for quick checks or for agents
+- **Custom Dashboards**
 - **Normalized status states**
 - **Built-in provider catalog**
-- **Shareable YAML dashboards**
 - **Detailed provider output**
-- **No credentials required**
+
 
 ## Installation
 
@@ -50,20 +52,22 @@ Build a local binary:
 ```bash
 go build -o tuip ./cmd/tuip
 ./tuip --help
+
+# or use make
 ```
 
 ## Quick start
-
-Check a few providers:
-
-```bash
-tuip status slack github cloudflare
-```
 
 Open the interactive TUI:
 
 ```bash
 tuip
+```
+
+Check a few providers:
+
+```bash
+tuip status slack github cloudflare
 ```
 
 Find providers:
@@ -109,7 +113,7 @@ tuip status --dashboard work
 
 Flags:
 
-- `--json` writes normalized JSON for scripts.
+- `--json` returns status as normalized JSON
 - `--details` includes incidents, scheduled maintenance, and components when the provider exposes them.
 - `--dashboard <name>` checks a named configured dashboard.
 
@@ -172,6 +176,8 @@ Provider source notes:
   - `/api/data`
 - Uptime Kuma public status-page JSON
   - `/api/status-page/{provider}`
+- Status.io status-page JSON
+  - `/1.0/status/<page-id>`
 - Public RSS feeds with provider-specific active incident parsing
   - AWS, Azure, Docker
 - Custom public APIs when a provider needs provider-specific handling
@@ -267,4 +273,7 @@ git tag -a v1.0.0 -m "tuip v1.0.0"
 git push origin v1.0.0
 ```
 
-Architecture and implementation notes live in [`docs/architecture.md`](./docs/architecture.md).
+
+## Additional Documentation
+- Architecture and implementation notes live in [`docs/architecture.md`](./docs/architecture.md).
+- Provider details, implementation and how to add additional provider notes live in [`internal/providers/README.md`](internal/providers/README.md)

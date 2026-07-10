@@ -14,17 +14,10 @@ on:
       - ".goreleaser.yaml"
       - ".github/workflows/ci.yml"
   pull_request:
-    paths:
-      - "**/*.go"
-      - "go.mod"
-      - "go.sum"
-      - "Makefile"
-      - ".golangci.yml"
-      - ".goreleaser.yaml"
-      - ".github/workflows/ci.yml"
 
 permissions:
   contents: read
+  pull-requests: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -46,19 +39,37 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v6
 
+      - name: Detect code changes
+        id: changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            code:
+              - "**/*.go"
+              - "go.mod"
+              - "go.sum"
+              - "Makefile"
+              - ".golangci.yml"
+              - ".goreleaser.yaml"
+              - ".github/workflows/ci.yml"
+
       - name: Set up Go
+        if: steps.changes.outputs.code == 'true'
         uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
           cache: true
 
       - name: Verify dependencies
+        if: steps.changes.outputs.code == 'true'
         run: go mod verify
 
       - name: Run tests
+        if: steps.changes.outputs.code == 'true'
         run: go test ./...
 
       - name: Build CLI
+        if: steps.changes.outputs.code == 'true'
         run: go build ./cmd/tuip
 
   lint:
@@ -69,13 +80,29 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v6
 
+      - name: Detect code changes
+        id: changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            code:
+              - "**/*.go"
+              - "go.mod"
+              - "go.sum"
+              - "Makefile"
+              - ".golangci.yml"
+              - ".goreleaser.yaml"
+              - ".github/workflows/ci.yml"
+
       - name: Set up Go
+        if: steps.changes.outputs.code == 'true'
         uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
           cache: true
 
       - name: Run golangci-lint
+        if: steps.changes.outputs.code == 'true'
         uses: golangci/golangci-lint-action@v9
         with:
           version: v2.12
@@ -91,13 +118,29 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Detect code changes
+        id: changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            code:
+              - "**/*.go"
+              - "go.mod"
+              - "go.sum"
+              - "Makefile"
+              - ".golangci.yml"
+              - ".goreleaser.yaml"
+              - ".github/workflows/ci.yml"
+
       - name: Set up Go
+        if: steps.changes.outputs.code == 'true'
         uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
           cache: true
 
       - name: Build release snapshot
+        if: steps.changes.outputs.code == 'true'
         uses: goreleaser/goreleaser-action@v7
         with:
           distribution: goreleaser
