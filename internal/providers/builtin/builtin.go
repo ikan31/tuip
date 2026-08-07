@@ -8,15 +8,15 @@ import (
 	"github.com/ikan31/tuip/internal/providers/aws"
 	"github.com/ikan31/tuip/internal/providers/azure"
 	"github.com/ikan31/tuip/internal/providers/docker"
+	"github.com/ikan31/tuip/internal/providers/fivetran"
 	"github.com/ikan31/tuip/internal/providers/gcp"
 	"github.com/ikan31/tuip/internal/providers/pagerdutystatus"
 	"github.com/ikan31/tuip/internal/providers/slack"
-	"github.com/ikan31/tuip/internal/providers/statusio"
 	"github.com/ikan31/tuip/internal/providers/statuspage"
 	"github.com/ikan31/tuip/internal/providers/uptimekuma"
 )
 
-const customProviderCount = 5
+const customProviderCount = 6
 
 type registration struct {
 	metadata providers.Metadata
@@ -30,8 +30,7 @@ func NewRegistry(client *fetch.Client) (*providers.Registry, error) {
 	statuspageRegs := statuspageRegistrations(client)
 	pagerDutyStatusRegs := pagerDutyStatusRegistrations(client)
 	uptimeKumaRegs := uptimeKumaRegistrations(client)
-	statusioRegs := statusioRegistrations(client)
-	registrations := make([]registration, 0, customProviderCount+len(pagerDutyStatusRegs)+len(uptimeKumaRegs)+len(statusioRegs)+len(statuspageRegs))
+	registrations := make([]registration, 0, customProviderCount+len(pagerDutyStatusRegs)+len(uptimeKumaRegs)+len(statuspageRegs))
 	registrations = append(registrations, registration{
 		metadata: slack.New(client).Metadata(),
 		factory:  func() providers.Provider { return slack.New(client) },
@@ -47,11 +46,12 @@ func NewRegistry(client *fetch.Client) (*providers.Registry, error) {
 	}, registration{
 		metadata: gcp.New(client).Metadata(),
 		factory:  func() providers.Provider { return gcp.New(client) },
+	}, registration{
+		metadata: fivetran.New(client).Metadata(),
+		factory:  func() providers.Provider { return fivetran.New(client) },
 	})
-
 	registrations = append(registrations, pagerDutyStatusRegs...)
 	registrations = append(registrations, uptimeKumaRegs...)
-	registrations = append(registrations, statusioRegs...)
 	registrations = append(registrations, statuspageRegs...)
 
 	for _, registration := range registrations {
@@ -180,34 +180,6 @@ func uptimeKumaRegistrations(client *fetch.Client) []registration {
 	return registrations
 }
 
-func statusioRegistrations(client *fetch.Client) []registration {
-	options := []statusio.Options{
-		{
-			ID:          "prefect",
-			Name:        "Prefect",
-			Description: "Prefect Cloud service status",
-			Category:    "Developer Tools",
-			SourceURL:   "https://prefect.status.io/",
-			APIURL:      "https://2266113422411059.hostedstatus.com/1.0/status/5f33ff702715c204c20d6da1",
-			StatusURL:   "https://2266113422411059.hostedstatus.com/1.0/status/5f33ff702715c204c20d6da1",
-		},
-	}
-
-	registrations := make([]registration, 0, len(options))
-	for _, option := range options {
-		current := option
-		provider := statusio.NewProvider(client, current)
-		registrations = append(registrations, registration{
-			metadata: provider.Metadata(),
-			factory: func() providers.Provider {
-				return statusio.NewProvider(client, current)
-			},
-		})
-	}
-
-	return registrations
-}
-
 func statuspageRegistrations(client *fetch.Client) []registration {
 	options := []statuspage.Options{
 		{
@@ -218,6 +190,15 @@ func statuspageRegistrations(client *fetch.Client) []registration {
 			SourceURL:   "https://www.cloudflarestatus.com/",
 			APIURL:      "https://www.cloudflarestatus.com/api",
 			SummaryURL:  "https://www.cloudflarestatus.com/api/v2/summary.json",
+		},
+		{
+			ID:          "prefect",
+			Name:        "Prefect",
+			Description: "Prefect Cloud service status",
+			Category:    "Developer Tools",
+			SourceURL:   "https://status.prefect.io/",
+			APIURL:      "https://status.prefect.io/api/v2/summary.json",
+			SummaryURL:  "https://status.prefect.io/api/v2/summary.json",
 		},
 		{
 			ID:          "github",
@@ -481,15 +462,6 @@ func statuspageRegistrations(client *fetch.Client) []registration {
 			SourceURL:   "https://status.preset.io/",
 			APIURL:      "https://status.preset.io/api/v2/summary.json",
 			SummaryURL:  "https://status.preset.io/api/v2/summary.json",
-		},
-		{
-			ID:          "fivetran",
-			Name:        "Fivetran",
-			Description: "Fivetran service status",
-			Category:    "Data Integration",
-			SourceURL:   "https://status.fivetran.com/",
-			APIURL:      "https://status.fivetran.com/api",
-			SummaryURL:  "https://status.fivetran.com/api/v2/summary.json",
 		},
 		{
 			ID:          "hevo",
@@ -1252,9 +1224,9 @@ func statuspageRegistrations(client *fetch.Client) []registration {
 			Name:        "JetBrains AI",
 			Description: "JetBrains AI service status",
 			Category:    "AI",
-			SourceURL:   "https://status.jetbrains.ai/",
-			APIURL:      "https://status.jetbrains.ai/api",
-			SummaryURL:  "https://status.jetbrains.ai/api/v2/summary.json",
+			SourceURL:   "https://status.jetbrains.cloud/",
+			APIURL:      "https://status.jetbrains.cloud/api/v2/summary.json",
+			SummaryURL:  "https://status.jetbrains.cloud/api/v2/summary.json",
 		},
 		{
 			ID:          "jfrog",
