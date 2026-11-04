@@ -13,6 +13,49 @@ import (
 	"github.com/ikan31/tuip/internal/status"
 )
 
+func TestProviderFetchScopedToComponent(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{
+			"status": {"indicator": "major", "description": "Cloudflare outage"},
+			"components": [
+				{"id": "other", "name": "Other service", "status": "major_outage"},
+				{"id": "replicate-id", "name": "Replicate", "status": "operational"}
+			],
+			"incidents": [
+				{"name": "Unrelated outage", "components": [{"id": "other"}]},
+				{"name": "Replicate incident", "components": [{"id": "replicate-id"}]}
+			],
+			"scheduled_maintenances": [
+				{"name": "Unrelated maintenance", "status": "in_progress", "components": [{"id": "other"}]}
+			]
+		}`))
+	}))
+	defer server.Close()
+
+	provider := NewProvider(fetch.WithHTTPClient(server.Client()), Options{
+		ID: "replicate", ComponentID: "replicate-id", SummaryURL: server.URL,
+	})
+
+	snapshot, err := provider.Fetch(t.Context())
+	if err != nil {
+		t.Fatalf("Fetch() error = %v", err)
+	}
+
+	if snapshot.State != status.StateOperational || snapshot.Summary != "Operational" {
+		t.Fatalf("status = %q (%s), want Operational", snapshot.State, snapshot.Summary)
+	}
+
+	if len(snapshot.Components) != 1 || snapshot.Components[0].Name != "Replicate" {
+		t.Fatalf("components = %+v, want only Replicate", snapshot.Components)
+	}
+
+	if len(snapshot.Incidents) != 1 || snapshot.Incidents[0].Name != "Replicate incident" {
+		t.Fatalf("incidents = %+v, want only the Replicate incident", snapshot.Incidents)
+	}
+}
+
 func TestMapIndicator(t *testing.T) {
 	t.Parallel()
 

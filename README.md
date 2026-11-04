@@ -172,6 +172,8 @@ Provider source notes:
 
 - Atlassian Statuspage-compatible JSON
   - `/api/v2/summary.json`
+- Datadog regional public status-page JSON
+  - `/config.json`
 - PagerDuty-hosted status-page JSON
   - `/api/data`
 - Uptime Kuma public status-page JSON
@@ -179,7 +181,7 @@ Provider source notes:
 - Status.io status-page JSON
   - `/1.0/status/<page-id>`
 - Public RSS feeds with provider-specific active incident parsing
-  - AWS, Azure, Docker
+  - AWS, Azure
 - Custom public APIs when a provider needs provider-specific handling
   - Google Cloud, Slack
 

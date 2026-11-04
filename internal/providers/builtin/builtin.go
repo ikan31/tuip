@@ -7,7 +7,7 @@ import (
 	"github.com/ikan31/tuip/internal/providers"
 	"github.com/ikan31/tuip/internal/providers/aws"
 	"github.com/ikan31/tuip/internal/providers/azure"
-	"github.com/ikan31/tuip/internal/providers/docker"
+	"github.com/ikan31/tuip/internal/providers/datadog"
 	"github.com/ikan31/tuip/internal/providers/fivetran"
 	"github.com/ikan31/tuip/internal/providers/gcp"
 	"github.com/ikan31/tuip/internal/providers/pagerdutystatus"
@@ -16,7 +16,7 @@ import (
 	"github.com/ikan31/tuip/internal/providers/uptimekuma"
 )
 
-const customProviderCount = 6
+const customProviderCount = 5
 
 type registration struct {
 	metadata providers.Metadata
@@ -28,9 +28,10 @@ func NewRegistry(client *fetch.Client) (*providers.Registry, error) {
 	registry := providers.NewRegistry()
 
 	statuspageRegs := statuspageRegistrations(client)
+	datadogRegs := datadogRegistrations(client)
 	pagerDutyStatusRegs := pagerDutyStatusRegistrations(client)
 	uptimeKumaRegs := uptimeKumaRegistrations(client)
-	registrations := make([]registration, 0, customProviderCount+len(pagerDutyStatusRegs)+len(uptimeKumaRegs)+len(statuspageRegs))
+	registrations := make([]registration, 0, customProviderCount+len(datadogRegs)+len(pagerDutyStatusRegs)+len(uptimeKumaRegs)+len(statuspageRegs))
 	registrations = append(registrations, registration{
 		metadata: slack.New(client).Metadata(),
 		factory:  func() providers.Provider { return slack.New(client) },
@@ -41,15 +42,13 @@ func NewRegistry(client *fetch.Client) (*providers.Registry, error) {
 		metadata: azure.New(client).Metadata(),
 		factory:  func() providers.Provider { return azure.New(client) },
 	}, registration{
-		metadata: docker.New(client).Metadata(),
-		factory:  func() providers.Provider { return docker.New(client) },
-	}, registration{
 		metadata: gcp.New(client).Metadata(),
 		factory:  func() providers.Provider { return gcp.New(client) },
 	}, registration{
 		metadata: fivetran.New(client).Metadata(),
 		factory:  func() providers.Provider { return fivetran.New(client) },
 	})
+	registrations = append(registrations, datadogRegs...)
 	registrations = append(registrations, pagerDutyStatusRegs...)
 	registrations = append(registrations, uptimeKumaRegs...)
 	registrations = append(registrations, statuspageRegs...)
@@ -180,6 +179,84 @@ func uptimeKumaRegistrations(client *fetch.Client) []registration {
 	return registrations
 }
 
+func datadogRegistrations(client *fetch.Client) []registration {
+	regions := []providers.Metadata{
+		{
+			ID:          "datadog-us1",
+			Aliases:     []string{"datadog"},
+			Name:        "Datadog US1",
+			Description: "Datadog US1 service status",
+			Category:    "Observability",
+			SourceURL:   "https://status.datadoghq.com/",
+			APIURL:      "https://status.datadoghq.com/config.json",
+		},
+		{
+			ID:          "datadog-eu",
+			Aliases:     []string{"ddog-eu"},
+			Name:        "Datadog EU",
+			Description: "Datadog EU service status",
+			Category:    "Observability",
+			SourceURL:   "https://status.datadoghq.eu/",
+			APIURL:      "https://status.datadoghq.eu/config.json",
+		},
+		{
+			ID:          "datadog-us5",
+			Aliases:     []string{"ddog-us5"},
+			Name:        "Datadog US5",
+			Description: "Datadog US5 service status",
+			Category:    "Observability",
+			SourceURL:   "https://status.us5.datadoghq.com/",
+			APIURL:      "https://status.us5.datadoghq.com/config.json",
+		},
+		{
+			ID:          "datadog-ap1",
+			Aliases:     []string{"ddog-ap1"},
+			Name:        "Datadog AP1",
+			Description: "Datadog AP1 service status",
+			Category:    "Observability",
+			SourceURL:   "https://status.ap1.datadoghq.com/",
+			APIURL:      "https://status.ap1.datadoghq.com/config.json",
+		},
+		{
+			ID:          "datadog-ap2",
+			Aliases:     []string{"ddog-ap2"},
+			Name:        "Datadog AP2",
+			Description: "Datadog AP2 service status",
+			Category:    "Observability",
+			SourceURL:   "https://status.ap2.datadoghq.com/",
+			APIURL:      "https://status.ap2.datadoghq.com/config.json",
+		},
+		{
+			ID:          "datadog-govcloud",
+			Aliases:     []string{"datadog-gov", "ddog-gov", "ddog-govcloud"},
+			Name:        "Datadog GovCloud",
+			Description: "Datadog GovCloud service status",
+			Category:    "Observability",
+			SourceURL:   "https://status.ddog-gov.com/",
+			APIURL:      "https://status.ddog-gov.com/config.json",
+		},
+		{
+			ID:          "datadog-us2-gov",
+			Aliases:     []string{"ddog-us2-gov", "datadog-us2-fed", "ddog-us2-fed"},
+			Name:        "Datadog US2 Gov",
+			Description: "Datadog US2 Gov service status",
+			Category:    "Observability",
+			SourceURL:   "https://status.us2.ddog-gov.com/",
+			APIURL:      "https://status.us2.ddog-gov.com/config.json",
+		},
+	}
+
+	registrations := make([]registration, 0, len(regions))
+	for _, region := range regions {
+		registrations = append(registrations, registration{
+			metadata: region,
+			factory:  func() providers.Provider { return datadog.NewProvider(client, region) },
+		})
+	}
+
+	return registrations
+}
+
 func statuspageRegistrations(client *fetch.Client) []registration {
 	options := []statuspage.Options{
 		{
@@ -190,6 +267,16 @@ func statuspageRegistrations(client *fetch.Client) []registration {
 			SourceURL:   "https://www.cloudflarestatus.com/",
 			APIURL:      "https://www.cloudflarestatus.com/api",
 			SummaryURL:  "https://www.cloudflarestatus.com/api/v2/summary.json",
+		},
+		{
+			ID:          "docker",
+			Aliases:     []string{"docker-hub", "dockerhub"},
+			Name:        "Docker",
+			Description: "Docker service status",
+			Category:    "Package Registries",
+			SourceURL:   "https://www.dockerstatus.com/",
+			APIURL:      "https://www.dockerstatus.com/api/v2/summary.json",
+			SummaryURL:  "https://www.dockerstatus.com/api/v2/summary.json",
 		},
 		{
 			ID:          "prefect",
@@ -712,76 +799,6 @@ func statuspageRegistrations(client *fetch.Client) []registration {
 			SourceURL:   "https://status.bigeye.com/",
 			APIURL:      "https://status.bigeye.com/api",
 			SummaryURL:  "https://status.bigeye.com/api/v2/summary.json",
-		},
-		{
-			ID:          "datadog-us1",
-			Aliases:     []string{"datadog"},
-			Name:        "Datadog US1",
-			Description: "Datadog US1 service status",
-			Category:    "Observability",
-			SourceURL:   "https://status.datadoghq.com/",
-			APIURL:      "https://status.datadoghq.com/api",
-			SummaryURL:  "https://status.datadoghq.com/api/v2/summary.json",
-		},
-		{
-			ID:          "datadog-eu",
-			Aliases:     []string{"ddog-eu"},
-			Name:        "Datadog EU",
-			Description: "Datadog EU service status",
-			Category:    "Observability",
-			SourceURL:   "https://status.datadoghq.eu/",
-			APIURL:      "https://status.datadoghq.eu/api",
-			SummaryURL:  "https://status.datadoghq.eu/api/v2/summary.json",
-		},
-		{
-			ID:          "datadog-us5",
-			Aliases:     []string{"ddog-us5"},
-			Name:        "Datadog US5",
-			Description: "Datadog US5 service status",
-			Category:    "Observability",
-			SourceURL:   "https://status.us5.datadoghq.com/",
-			APIURL:      "https://status.us5.datadoghq.com/api",
-			SummaryURL:  "https://status.us5.datadoghq.com/api/v2/summary.json",
-		},
-		{
-			ID:          "datadog-ap1",
-			Aliases:     []string{"ddog-ap1"},
-			Name:        "Datadog AP1",
-			Description: "Datadog AP1 service status",
-			Category:    "Observability",
-			SourceURL:   "https://status.ap1.datadoghq.com/",
-			APIURL:      "https://status.ap1.datadoghq.com/api",
-			SummaryURL:  "https://status.ap1.datadoghq.com/api/v2/summary.json",
-		},
-		{
-			ID:          "datadog-ap2",
-			Aliases:     []string{"ddog-ap2"},
-			Name:        "Datadog AP2",
-			Description: "Datadog AP2 service status",
-			Category:    "Observability",
-			SourceURL:   "https://status.ap2.datadoghq.com/",
-			APIURL:      "https://status.ap2.datadoghq.com/api",
-			SummaryURL:  "https://status.ap2.datadoghq.com/api/v2/summary.json",
-		},
-		{
-			ID:          "datadog-govcloud",
-			Aliases:     []string{"datadog-gov", "ddog-gov", "ddog-govcloud"},
-			Name:        "Datadog GovCloud",
-			Description: "Datadog GovCloud service status",
-			Category:    "Observability",
-			SourceURL:   "https://status.ddog-gov.com/",
-			APIURL:      "https://status.ddog-gov.com/api",
-			SummaryURL:  "https://status.ddog-gov.com/api/v2/summary.json",
-		},
-		{
-			ID:          "datadog-us2-gov",
-			Aliases:     []string{"ddog-us2-gov", "datadog-us2-fed", "ddog-us2-fed"},
-			Name:        "Datadog US2 Gov",
-			Description: "Datadog US2 Gov service status",
-			Category:    "Observability",
-			SourceURL:   "https://status.us2.ddog-gov.com/",
-			APIURL:      "https://status.us2.ddog-gov.com/api",
-			SummaryURL:  "https://status.us2.ddog-gov.com/api/v2/summary.json",
 		},
 		{
 			ID:          "new-relic",
@@ -1448,9 +1465,10 @@ func statuspageRegistrations(client *fetch.Client) []registration {
 			Name:        "Replicate",
 			Description: "Replicate service status",
 			Category:    "AI",
-			SourceURL:   "https://status.replicate.com/",
-			APIURL:      "https://status.replicate.com/api",
-			SummaryURL:  "https://status.replicate.com/api/v2/summary.json",
+			SourceURL:   "https://www.cloudflarestatus.com/services?search=replicate",
+			APIURL:      "https://www.cloudflarestatus.com/api/v2/summary.json",
+			SummaryURL:  "https://www.cloudflarestatus.com/api/v2/summary.json",
+			ComponentID: "fvgfcmy66tdr",
 		},
 		{
 			ID:          "revenuecat",

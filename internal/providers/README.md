@@ -217,7 +217,7 @@ Slack and Google Cloud are examples of this approach.
 
 Use feed-based providers when the service exposes public incident feeds but no structured current-status JSON. Feed providers should document whether the feed is active-only or historical, and should avoid treating every feed item as an active outage unless the upstream semantics support that.
 
-AWS, Azure, and Docker are examples of this approach.
+AWS and Azure are examples of this approach.
 
 ### 7. HTML-only status page
 
