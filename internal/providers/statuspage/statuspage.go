@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"html"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -23,6 +24,7 @@ type Options struct {
 	SourceURL   string
 	APIURL      string
 	SummaryURL  string
+	ComponentID string // Limit the status and incidents to this component when set.
 }
 
 // Provider fetches a Statuspage /api/v2/summary.json endpoint.
@@ -64,6 +66,18 @@ func (p *Provider) Fetch(ctx context.Context) (status.Snapshot, error) {
 	}
 
 	summary := strings.TrimSpace(payload.Status.Description)
+
+	if p.options.ComponentID != "" {
+		err = payload.scopeToComponent(p.options.ComponentID)
+		if err != nil {
+			return status.Snapshot{}, fmt.Errorf("fetch %s status: %w", p.options.ID, err)
+		}
+
+		component := payload.Components[0]
+		state = MapComponentStatus(component.Status)
+		updatedAt = parseTime(component.UpdatedAt)
+		summary = ""
+	}
 
 	if summary == "" {
 		summary = state.Display()
@@ -257,6 +271,26 @@ type summaryResponse struct {
 	Status                statusResponse      `json:"status"`
 }
 
+func (r *summaryResponse) scopeToComponent(id string) error {
+	index := slices.IndexFunc(r.Components, func(component componentResponse) bool {
+		return component.ID == id && !component.Group
+	})
+	if index < 0 {
+		return fmt.Errorf("status component %q is missing", id)
+	}
+
+	r.Components = r.Components[index : index+1]
+	exclude := func(incident incidentResponse) bool {
+		return !slices.ContainsFunc(incident.Components, func(component componentResponse) bool {
+			return component.ID == id
+		})
+	}
+	r.Incidents = slices.DeleteFunc(r.Incidents, exclude)
+	r.ScheduledMaintenances = slices.DeleteFunc(r.ScheduledMaintenances, exclude)
+
+	return nil
+}
+
 type pageResponse struct {
 	ID        string `json:"id"`
 	Name      string `json:"name"`
@@ -271,12 +305,13 @@ type statusResponse struct {
 }
 
 type componentResponse struct {
-	ID       string `json:"id"`
-	Name     string `json:"name"`
-	Status   string `json:"status"`
-	GroupID  string `json:"group_id"`
-	Group    bool   `json:"group"`
-	Position int    `json:"position"`
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	Status    string `json:"status"`
+	GroupID   string `json:"group_id"`
+	Group     bool   `json:"group"`
+	Position  int    `json:"position"`
+	UpdatedAt string `json:"updated_at"`
 }
 
 type incidentResponse struct {
@@ -290,6 +325,7 @@ type incidentResponse struct {
 	ScheduledFor    string                   `json:"scheduled_for"`
 	ScheduledUntil  string                   `json:"scheduled_until"`
 	IncidentUpdates []incidentUpdateResponse `json:"incident_updates"`
+	Components      []componentResponse      `json:"components"`
 }
 
 type incidentUpdateResponse struct {
